@@ -92,7 +92,7 @@ Inputs:
    - ✋ Turn on MFA for Google (Play Console), GitHub, the domain registrar and hosting (item 10).
    - ✋ Set spend caps (item 10).
    - ✋ Create the Play Console personal account, and recruit 12+ closed testers from your Ilorin communities. A new personal account needs a 14-day closed test before production.
-6. **P05 UI Design Direction, USE.** P05-A (extract from the prototype), then P05-B (signage, HUD, menus, touch controls).
+6. **P05 UI Design Direction, USE.** P05-A is done (2026-11-11, [DESIGN.md](DESIGN.md)). P05-B is next. P05-A (extract from the prototype), then P05-B (signage, HUD, menus, touch controls).
    > Follow docs/prompts/P05_ui_design_direction.md, P05-A then P05-B.
 7. **P06 Safe Change Protocol, USE, every change.**
 8. ✋ **Fund preparation**, at any time before mid-2027. Register a business name or company with the CAC, so you can apply to the next Google Play Indie Games Fund Africa round. It requires a registered studio and an already-launched game. See IDEA_BRIEF, Sustainability.
