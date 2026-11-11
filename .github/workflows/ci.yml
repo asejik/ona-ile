@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  zone:
+    name: Zone data rebuilds from the pinned OSM extract
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Rebuild zone1 and compare
+        run: |
+          python -I baba-keke/tools/build_zone.py data/osm/zone1-post-office_2026-11-07.json "$RUNNER_TEMP/zone1.js"
+          diff <(tr -d '\r' < "$RUNNER_TEMP/zone1.js") <(tr -d '\r' < baba-keke/zone1.js) > /dev/null \
+            || { echo "zone1.js differs from what build_zone.py produces. Regenerate it, don't hand-edit."; exit 1; }
+          echo "zone1.js matches the pipeline output."
+
+  # Typecheck, lint, unit tests, build and Playwright smoke tests are added in M1.

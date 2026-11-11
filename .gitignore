@@ -1,0 +1,42 @@
+# Dependencies and build output
+node_modules/
+dist/
+dist-ssr/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+__pycache__/
+*.pyc
+
+# Environment files (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# Android / Capacitor
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/app/release/
+*.apk
+*.aab
+*.keystore
+*.jks
+keystore.properties
+
+# Art source backups
+*.blend1
+*.blend2
+
+# Editors and OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Claude Code personal settings
+.claude/settings.local.json

@@ -1,0 +1,10 @@
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.glb binary
+*.ktx2 binary
+*.blend binary
+*.woff2 binary
+# Generated or downloaded data: hide from diffs
+data/osm/*.json -diff linguist-generated
+baba-keke/zone1.js -diff linguist-generated
