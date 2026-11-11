@@ -36,5 +36,38 @@ jobs:
           diff <(tr -d '\r' < "$RUNNER_TEMP/zone1.js") <(tr -d '\r' < baba-keke/zone1.js) > /dev/null \
             || { echo "zone1.js differs from what build_zone.py produces. Regenerate it, don't hand-edit."; exit 1; }
           echo "zone1.js matches the pipeline output."
+      - name: Rebuild the game's zone JSON and compare
+        run: |
+          python -I tools/build_zone.py data/osm/zone1-post-office_2026-11-07.json "$RUNNER_TEMP/zone1.json"
+          cmp "$RUNNER_TEMP/zone1.json" public/zones/zone1-post-office.json \
+            || { echo "public/zones/zone1-post-office.json differs from the pipeline output. Run npm run zone, don't hand-edit."; exit 1; }
+          echo "zone1-post-office.json matches the pipeline output."
 
-  # Typecheck, lint, unit tests, build and Playwright smoke tests are added in M1.
+  app:
+    name: Typecheck, lint, test, build, browser test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Dependency audit (fails on high or critical)
+        run: npm audit --audit-level=high
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Browser test (phone and desktop)
+        run: npm run test:e2e
+      - name: Keep screenshots and traces
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-results
+          path: test-results/
+          retention-days: 7
