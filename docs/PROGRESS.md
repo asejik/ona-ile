@@ -6,7 +6,7 @@
 - **Planning is done:** PROMPT_PLAN (P00), IDEA_BRIEF (P01), PROJECT_PLAN, DATA_INVENTORY draft and CLAUDE.md (P02).
 - **PRD:** https://claude.ai/artifact/DbR5D4bPuhmqcZtjaHE8A1. ACC-3 swipe-to-drive was added on 2026-11-07.
 - **Repo:** `https://github.com/asejik/ona-ile` (private). The first commit was pushed on 2026-11-11.
-- **M0 is done:** P03, P04 and P05-A. Next: P05-B (design direction), then M1 (walking skeleton).
+- **M0 is done:** P03, P04 and P05 (A and B). Next: **M1, the walking skeleton**.
 
 ## Log
 
@@ -17,3 +17,4 @@
 | 2026-11-11 | P04 setup | git and the private remote. `.gitignore`, LICENSE, NOTICE, CI (gitleaks and the zone reproducibility check), Dependabot, Claude deny rules, bug template, SETUP.md, FINDINGS.md. Pinned OSM extract in `data/osm/` | P05-A | MFA and domain renewal are actions for you. Branch protection isn't possible on a private Free repo |
 | 2026-11-11 | P05-A design extraction | `docs/DESIGN.md`: tokens, type, layout, components, signature moments, and 23 findings (8 inconsistencies, 11 accessibility, 4 performance) | P05-B | Findings are open until the rebuild. No device measurement of the blur cost |
 | 2026-11-11 | Second playtest refinements | PRD: added HUD-1 mission tracker, CORE-4 passengers easy to find, CORE-5 roadside pickup and drop-off, REAL-5 potholes (all P0). REAL-2 living streetscape rewritten and raised to P0. PROJECT_PLAN §2 and M2, M4, M5 updated | P05-B | REAL-2 at P0 adds art and performance load to the slice |
+| 2026-11-11 | P05-B design direction | `docs/DESIGN.md` rewritten as the rebuild's system: notebook interface, road-sign world, tokens with contrast computed, all components, privacy components, and resolutions for the 23 P05-A findings. The extraction moved to `docs/design/PROTOTYPE_EXTRACTION.md` | M1 walking skeleton | A specification only: no screen is built or checked in a browser yet. Lucide icons are a new dependency to approve in M1 |

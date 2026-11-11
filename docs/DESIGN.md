@@ -1,279 +1,307 @@
-# Ọ̀nà Ilé: Design System (P05-A extraction)
+# Ọ̀nà Ilé: Design System (P05-B)
 
-Extracted 2026-11-11 from prototype v0.1 (`baba-keke/index.html`). No prototype code was changed.
+Decided 2026-11-11. This is the system the rebuild follows. **All UI uses these tokens, never one-off values.**
 
-**Status:** this is the *as-built* system. P05-B (design direction) extends it for the rebuild: signage, swipe controls, menus, settings and the full map. Until then, treat the tokens in §1–§5 as the source of truth and the findings in §10 as open.
-
-**How it was checked:** every value is read from the prototype's CSS and script. Contrast ratios are computed with the WCAG formula, with translucent panels measured over the haze colour. The screens were viewed at phone portrait, phone landscape and desktop widths during the prototype's testing on 2026-11-07. No new screenshots were taken for this extraction.
+- **Direction (owner's choice):** "Baba's notebook" for the interface, with Nigerian road-sign styling for everything that sits inside the 3D world.
+- **As-built record of the prototype:** [design/PROTOTYPE_EXTRACTION.md](design/PROTOTYPE_EXTRACTION.md) (P05-A). Its finding numbers (I-1, A-3, P-1 and so on) are referenced below.
+- **Status:** a specification. Nothing is built yet, so no screen has been checked in a browser. Contrast ratios are computed with the WCAG formula.
 
 ---
 
-## 1. Colour
+## 1. Brand brief
 
-There is one theme. The UI is dark panels and cream cards over a bright 3D scene, with no light/dark switch.
-
-### UI tokens (copy-ready)
-
-```css
-:root {
-  /* Brand */
-  --keke: #F2C230;        /* keke yellow: money, primary buttons, player marker, pickups */
-  --keke-deep: #C9971A;   /* button "lip" shadow, star glyphs, title accent */
-  --green: #1F6B45;       /* keke stripe: the main call-to-action button */
-  --green-deep: #124A2F;  /* lip shadow under the green button (inline today) */
-  --laterite: #B5643F;    /* Ilorin red earth: eyebrow labels, notebook rules */
-  --haze: #E6CFA8;        /* harmattan sky: page background, title wash */
-
-  /* Surfaces and text */
-  --ink: #1C1812;         /* text on cream; dark chips */
-  --paper: #FFF6E4;       /* card surface; text on dark panels */
-  --paper-2: #F3E6CB;     /* keycap background */
-  --muted: #CDBEA4;       /* small labels on dark panels */
-  --panel: rgba(28, 24, 18, .74);  /* HUD panel background */
-
-  /* State */
-  --stop: #D9432F;        /* warden STOP, bad toasts, low comfort */
-  --go: #38A95B;          /* warden GO, good toasts, Respect bar */
-
-  /* Extra colours used inline today (promote to tokens in the rebuild) */
-  --text-secondary: #6F5F49;  /* character role line on cards */
-  --text-help: #5E5040;       /* key help */
-  --text-fine: #7A6A55;       /* fine print */
-  --late: #FF9B87;            /* late timer on a dark panel */
-  --route: #36D07A;           /* route line and destination on the minimap */
-  --notebook: #FFB14A;        /* notebook place marker and light beam */
-}
-```
-
-### Roles
-
-| Role | Token | Notes |
-|---|---|---|
-| Page background | `--haze` | The scene fog uses a near-identical `#E3C9A0` |
-| HUD surface | `--panel` | With a 6 px backdrop blur |
-| Card surface | `--paper` | With ruled lines at 10% `--laterite` |
-| Text on cards | `--ink` | Secondary `--text-secondary`, fine print `--text-fine` |
-| Text on HUD | `--paper` | Labels `--muted` |
-| Accent | `--keke` | Money, primary action, "you" |
-| Main call to action | `--green` | One per screen ("Start driving") |
-| Success / go | `--go` | |
-| Error / stop | `--stop` | |
-| Warning / late | `--late` | |
-| Border | none | Borders are drawn as inset box-shadows (see §4) |
-
-### World palette (3D scene and minimap)
-
-| Use | Values |
+| | |
 |---|---|
-| Sky and fog | `#E3C9A0` (fog from 55 m to 420 m; 300 m in low-detail mode) |
-| Building walls | `#EADCC0 #DCBF92 #CF9A5C #B9C7A3 #A9C6D6 #F0EBE0 #E3B3A1 #C7835C #D8D0B0 #BFA98A #E9D39B` |
-| Roofs (zinc and rust) | `#9AA0A4 #8A5236 #6E7A82 #B7AEA0 #7F8B8F #A0643F` |
-| Kiosks | `#2F7FC1 #E0B92F #C0392B #3A9A5B #E67E22 #8E44AD #16A085` |
-| Traffic cars | `#F1F1EE #B9BCC0 #6D1F2B #24477A #1B1B1B #B08A3E #E3E1DA` |
-| Minimap ground | `#C79466` |
-| Minimap markers | Route and destination `--route`. Pickups `--keke`. Notebook places `--notebook`. Wardens `--stop` or `--go` with a white ring. All others are ringed in `--ink` |
+| Players | People in Ilorin and beyond, mostly on 3–4 GB Android phones, often outdoors in bright light, on costly data. Also desktop browsers |
+| Feeling | **Warm, dusty, playful, handmade, local** |
+| Product | A game, plus one small landing and privacy page |
+| Platform | Web (phone and desktop browsers) and an Android app from the same build. Because it's a game, it follows its own conventions rather than Material Design, except for system behaviour (back button, safe areas) |
+| Theme | **One theme.** Cream panels over the 3D view. No light/dark switch. TIME-3 (time of day) changes the scene, not the UI |
+| Tech | Plain CSS variables, no Tailwind and no animation library (PROJECT_PLAN §5: no React, small bundle). One icon set |
+
+## 2. The two rules of the direction
+
+1. **If it's interface, it's a page from Baba's notebook.** HUD chips, cards, menus and prompts are cream paper with ink text and a thin ink outline. Handwritten touches (ticks, ruled lines, a dashed underline) are allowed. Blur, glass and gradients are not.
+2. **If it's in the world, it's a road sign.** Street plates, junction signposts, challenge start markers and the current-street banner use sign green with white text and a white border, the way Nigerian road signs look. The banner is the one HUD element that borrows the sign style, because it mirrors a sign.
+
+**Signature moments** (keep these special; don't add more):
+1. **Today's page.** The mission tracker is a notebook to-do list. Finishing an item draws a tick and strikes the line through.
+2. **Signs you can trust.** In-world plates and signposts look like real ones and name where each road leads.
+3. **The memory page-turn.** Restoring a Memory Book page plays one page-turn, the game's only large UI animation.
 
 ---
 
-## 2. Typography
+## 3. Tokens
 
 ```css
 :root {
-  --font-display: 'Baloo 2', 'Arial Rounded MT Bold', system-ui, sans-serif;
-  --font-body: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-}
-```
+  /* ---- Colour: brand ---- */
+  --keke: #F2C230;          /* keke yellow: primary buttons, "you" marker, pickups */
+  --keke-deep: #C9971A;     /* button lip only. Never text or icons (2.47:1 on paper) */
+  --green: #1F6B45;         /* keke stripe: the one call to action per screen */
+  --green-deep: #124A2F;    /* lip under the green button */
+  --laterite: #B5643F;      /* decoration only: ruled lines, borders */
+  --haze: #E6CFA8;          /* page background, title wash, scene fog (one value) */
 
-- **Loading today:** a Google Fonts stylesheet (Baloo 2 at 600 and 800; Nunito at 400, 600, 700 and 800). **The rebuild self-hosts both** (PRIV-10). Baloo 2 weight 600 is loaded but never used, so drop it.
-- Both families were chosen because they render Yoruba diacritics (Ọ̀, ẹ, ṣ, tone marks).
-- Numbers that change use `font-variant-numeric: tabular-nums`.
+  /* ---- Colour: surfaces and text ---- */
+  --paper: #FFF6E4;         /* every interface surface */
+  --paper-2: #F3E6CB;       /* inset areas: keycaps, tracks, table stripes */
+  --ink: #1C1812;           /* text, outlines, icons */
+  --text-secondary: #6F5F49;/* supporting text on paper (5.74:1) */
+  --text-disabled: #8E806A; /* disabled labels only (3.59:1; not for readable text) */
+  --laterite-text: #9A4F2E; /* eyebrow labels on paper (5.54:1) */
+  --gold-text: #8A6508;     /* stars and gold accents on paper (4.96:1) */
 
-| Style | Family | Size | Weight | Line height | Other |
-|---|---|---|---|---|---|
-| Game title (h1) | Display | `clamp(44px, 9vw, 68px)` | 800 | 0.95 | `text-wrap: balance` |
-| Screen heading (h2) | Display | 30px | 800 | default | |
-| Money | Display | 28px (23px under 700 px wide) | 800 | 1 | `--keke` |
-| Character name | Display | 21px | 800 | 1 | |
-| Speed | Display | 20px | 800 | | Unit in body 12px/800 |
-| Trip destination | Display | 18px | 800 | 1.1 | |
-| Button | Display | 16.5px (photo button 17px) | 800 | 1.1 | |
-| Dialogue | Body | 16.5px | 600 | 1.45 | Max 65 characters wide |
-| Lede | Body | 16px | 600 | 1.45 | Max 52 characters wide |
-| Toast | Body | 14.5px | 700 | 1.3 | |
-| Detail table | Body | 14px | 400, totals 800 | 1.4 | Total row 16px |
-| HUD value | Body | 13px | 800 | | |
-| Goal, warden, role | Body | 12.5px | 700–800 | 1.25 | |
-| Eyebrow | Body | 11.5px | 800 | | Uppercase, `letter-spacing: .11em` |
-| HUD label | Body | 10.5px | 800 | | Uppercase, `letter-spacing: .09em` |
-| Fine print | Body | 11.5px | 400 | | |
+  /* ---- Colour: state ---- */
+  --go: #38A95B;            /* GO fill. Text on it is --ink (5.88:1) */
+  --stop: #B83220;          /* STOP fill. Text on it is white (5.97:1) */
+  --success-text: #1F6B45;  /* on paper (6.02:1) */
+  --danger-text: #A82A18;   /* errors and "late" on paper (6.50:1) */
 
----
+  /* ---- Colour: world signs and map ---- */
+  --sign-green: #0E5A36;    /* sign panels. Text and border are white (8.29:1) */
+  --sign-white: #FFFFFF;
+  --route: #36D07A;         /* route line and destination, always with a 2px --ink casing */
+  --notebook: #FFB14A;      /* notebook place markers, with an --ink ring */
+  --map-ground: #C79466;
 
-## 3. Spacing and layout
+  /* ---- Type ---- */
+  --font-display: 'Baloo 2', 'Arial Rounded MT Bold', system-ui, sans-serif;  /* weight 800 only */
+  --font-body: 'Nunito', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; /* weights 600 and 800 */
+  --text-xs: 12px;   /* smallest size allowed */
+  --text-sm: 14px;
+  --text-md: 16px;   /* body and dialogue */
+  --text-lg: 18px;
+  --text-xl: 22px;
+  --text-2xl: 28px;
+  --text-title: clamp(44px, 9vw, 68px);
+  --leading-tight: 1.1;
+  --leading-body: 1.45;
+  --text-scale: 1;   /* Settings: 1, 1.15 or 1.3. Every size multiplies by it */
 
-- **Layout idea:** the 3D view fills the screen. The HUD floats in the corners "like a keke dashboard". Conversation and menus are cream cards.
-- **Safe areas:** every edge uses `max(<gutter>, env(safe-area-inset-*))`. The side gutter is 16px; top and bottom are 10–12px.
-- **Spacing in use:** 2, 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 16, 18, 22 and 24 px. This is not a scale (see §10). Proposed scale for the rebuild: `4, 8, 12, 16, 24, 32`.
-- **Widths:** card `min(560px, 100%)`; stats panel `min(250px, 44vw)`; trip panel 220–360px; toasts up to 460px.
-- **Minimap:** a 150px circle; 112px under 700 px wide; 104px when the screen is under 480 px tall.
-- **Card position:** dialogue cards sit at the bottom of the screen. The title and pause cards are centred.
-- **Breakpoints:**
-  - `max-width: 700px`: compact HUD.
-  - `max-width: 520px` with touch: speed and the photo button move above the controls.
-  - `max-height: 480px` (landscape phones): the goal line hides and toasts move up.
-- **Pointer rule:** the HUD layer ignores taps (`pointer-events: none`), and only buttons opt back in. This matters for swipe-to-drive (ACC-3).
+  /* ---- Spacing (4-based) ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --gutter: max(16px, env(safe-area-inset-left, 0px));
 
----
+  /* ---- Shape ---- */
+  --radius-sign: 4px;       /* signs and sign-style banner */
+  --radius-chip: 6px;
+  --radius-button: 12px;
+  --radius-panel: 12px;
+  --radius-card: 18px;
+  --radius-pill: 99px;
+  --outline: inset 0 0 0 1.5px var(--ink);          /* the ink outline on every paper panel */
+  --outline-soft: inset 0 0 0 2px rgba(28,24,18,.35);/* outline buttons */
 
-## 4. Shape and depth
-
-```css
-:root {
-  --radius-chip: 6px;      /* STOP/GO chip, keycaps (5px today) */
-  --radius-button: 12px;   /* buttons, toasts */
-  --radius-panel: 14px;    /* HUD panels */
-  --radius-card: 18px;     /* cards */
-  --radius-pedal: 24px;    /* gas (24px) and brake (22px today) */
-  --radius-pill: 99px;     /* bars, photo button; round controls use 50% */
-
-  --shadow-panel: 0 3px 14px rgba(0,0,0,.25);
+  /* ---- Depth ---- */
+  --shadow-panel: 0 2px 0 rgba(28,24,18,.25);       /* a hard, short "paper on a desk" shadow */
   --shadow-card: 0 10px 40px rgba(0,0,0,.35);
-  --shadow-chip: 0 2px 8px rgba(0,0,0,.3);
-  --shadow-map: 0 0 0 3px rgba(255,246,228,.9), 0 4px 16px rgba(0,0,0,.3);
-  --lip-keke: 0 3px 0 var(--keke-deep);    /* the "pressable" button lip */
+  --lip-keke: 0 3px 0 var(--keke-deep);
   --lip-green: 0 3px 0 var(--green-deep);
-  --lip-photo: 0 4px 0 var(--keke-deep), 0 8px 18px rgba(0,0,0,.25);
+
+  /* ---- Motion ---- */
+  --dur-fast: 150ms;        /* presses, toggles */
+  --dur-base: 250ms;        /* toasts, ticks, bars */
+  --dur-slow: 400ms;        /* cards in and out, the page-turn */
+  --ease-out: cubic-bezier(.2, .8, .2, 1);
+  --ease-in-out: cubic-bezier(.4, 0, .2, 1);
+
+  /* ---- Touch ---- */
+  --touch-min: 48px;        /* smallest tappable size (driving, one-handed) */
 }
 ```
 
-- **Borders** are inset shadows, never `border`:
-  - outline button: `inset 0 0 0 2px rgba(28,24,18,.35)`;
-  - touch controls: `inset 0 0 0 2px rgba(255,246,228,.35)`;
-  - toasts: `inset 0 0 0 2px` in `--go` or `--stop`.
-- **Blur:** `backdrop-filter: blur(6px)` on HUD panels only (stats, trip, warden). Toasts and controls have none.
-- **Card texture:** ruled notebook lines, `repeating-linear-gradient(transparent 0 27px, rgba(181,100,63,.10) 27px 28px)`.
-- **Avatar:** a 50px circle in the character's colour with their initial, and an inner bottom shade of `inset 0 -4px 0 rgba(0,0,0,.18)`.
+### Contrast table (computed)
+
+| Pair | Ratio | Passes |
+|---|---|---|
+| `--ink` on `--paper` | 16.45 | AA text |
+| `--ink` on `--paper-2` | 14.29 | AA text |
+| `--text-secondary` on `--paper` / `--paper-2` | 5.74 / 4.98 | AA text |
+| `--laterite-text` on `--paper` | 5.54 | AA text |
+| `--gold-text` on `--paper` | 4.96 | AA text |
+| `--danger-text` on `--paper` | 6.50 | AA text |
+| `--success-text` on `--paper` | 6.02 | AA text |
+| `--ink` on `--keke` | 10.54 | AA text |
+| `--paper` on `--green` | 6.02 | AA text |
+| `--ink` on `--go` | 5.88 | AA text |
+| white on `--stop` | 5.97 | AA text |
+| white on `--sign-green` | 8.29 | AA text |
+| `--ink` outline against `--haze` | 11.66 | Panel edges (paper against haze alone is only 1.41, hence the outline) |
+| `--ink` casing on `--map-ground` | 6.61 | Map graphics |
+
+**Never use:** `--keke` or `--keke-deep` as text on paper; `--laterite` as text; white text on `--go`; `--text-disabled` for anything a player must read.
+
+### Type
+
+- **Two families, three weights:** Baloo 2 at 800; Nunito at 600 and 800. Self-hosted WOFF2, subset to Latin plus the Yoruba marks (ẹ ọ ṣ and the tone accents), `font-display: swap` (PRIV-10, I-8, P-2).
+- Display font: titles, names, money, buttons, signs. Body font: everything else.
+- Numbers that change use `font-variant-numeric: tabular-nums`.
+- Uppercase is only for the 12px eyebrow label, with `letter-spacing: .08em`.
+- Dialogue lines are at most 65 characters wide.
+- Money is written "₦5,000" with a comma separator and no decimals.
+
+---
+
+## 4. Layout
+
+- Design at **360 × 640 portrait first**, then landscape phone, then desktop.
+- The 3D view fills the screen. The HUD floats at the edges. Cards rise from the bottom on phones and sit centred on desktop.
+- Every edge respects the safe-area insets, with a 16px side gutter.
+- The HUD layer ignores touches. Only its controls opt in. **Everything else on the driving view belongs to swipe-to-drive.**
+- **Driving HUD zones (portrait):**
+
+| Zone | Content |
+|---|---|
+| Top left | Today's page (mission tracker) |
+| Top right | Minimap, with the pause button on its corner |
+| Top centre, under those | Current-street banner |
+| Middle band | Kept clear for the road. Toasts appear here, briefly |
+| Bottom left | Horn |
+| Bottom right | Damage and speed chip |
+| Bottom centre | Context button (for example "Take a photo for Baba", "Pick up") |
+| Bottom edge | Map credit, on a paper chip |
+
+- In landscape, Today's page collapses to its first line and the banner sits at the top centre.
 
 ---
 
 ## 5. Motion
 
-| Animation | Duration and easing | Trigger | Reduced motion |
-|---|---|---|---|
-| Toast "pop" (rises 8px, scales .96 to 1, fades in) | 250ms ease-out | A toast appears | Off |
-| Progress bars (width) | 350ms ease | A value changes | Off |
-| Button press (moves down 2px) | Instant | `:active` | Kept (tiny) |
-| Photo flash (white, opacity .9 to 0) | 600ms ease-out | Taking a notebook photo | **Not handled** (see §10) |
-| Camera shake | Up to 0.5 m, decays in about 0.3 s | Collisions | Off (the script checks the setting) |
-| Minimap rotation | Every frame | The player turns | Not handled; arguably essential |
-
-```css
-:root {
-  --dur-fast: 250ms;
-  --dur-base: 350ms;
-  --dur-flash: 600ms;
-  --ease-out: ease-out;
-}
-```
+- Motion must tell the player something: a press, a state change, or one of the three signature moments.
+- Durations: 150, 250 or 400ms. Easing: `--ease-out` for things arriving, `--ease-in-out` for things moving.
+- Animate `transform` and `opacity` only (P-4). Bars grow with `scaleX`.
+- **Reduced motion** (`prefers-reduced-motion`, plus a "Reduce motion" setting):
+  - no toast pop, tick draw or bar animation;
+  - no camera shake;
+  - the photo flash becomes a brief paper-coloured fade at 40% (A-7);
+  - the page-turn becomes a cross-fade.
+- The minimap redraws at most 20 times a second (P-3).
 
 ---
 
 ## 6. Components
 
-| Component | Look | Behaviour |
-|---|---|---|
-| **Primary button** `.btn` | `--keke` fill, `--ink` text, 12px radius, 11×16px padding, keke lip | Presses down 2px. Focus ring: 3px `--keke` outline, 2px offset |
-| **Call-to-action** `.btn.green` | `--green` fill, `--paper` text, green lip | One per screen |
-| **Outline button** `.btn.alt` | Transparent, 2px inset ink outline | Secondary actions |
-| **Photo button** | Pill, `--keke`, 17px text, deeper lip and drop shadow | Appears only near a notebook place |
-| **HUD panel** `.panel` | `--panel`, blur, 14px radius | Never takes taps |
-| **Stats panel** | Label and value rows; money large in `--keke`; 7px bars | Bars animate |
-| **Progress bar** `.bar` | 7px pill on a 16% paper track. Fill `--keke`; Respect `--go`; comfort a red-yellow-green gradient | |
-| **Trip panel** | Centred at the top: passenger label, destination, distance · time · fare, comfort bar | The timer turns `--late` when late |
-| **Warden chip** | Name plus a STOP or GO chip (white on `--stop` or `--go`) | Shown near a warden |
-| **Minimap** | Circle with a cream ring, rotating with heading, and a floating "N" tag | Edge dots point to off-map targets |
-| **Toast** | Dark block with a 12px radius, centred at 34% height. Good and bad variants are ringed green or red | Stacks; pops in |
-| **Dialogue card** | Cream ruled card at the bottom: avatar, name, role, line, optional table (dashed row rules, bold right column), star row, buttons | `role="dialog"`, `aria-live="polite"` |
-| **Title and pause cards** | Centred card: eyebrow, big title, lede, buttons, key help, fine print | The title sits on a haze gradient wash |
-| **Touch controls** | Left: two 74px round steer buttons. Right: 54px horn, 74px brake (red tint), 82×96px gas (green tint). Translucent, with a light inset ring | The pressed state turns `--keke` |
-| **Keycap** `kbd` | `--paper-2`, 5px radius, inner bottom shade | Key help on desktop only |
-| **Fatal error** | Centred ink text on haze | Shown if the engine or map fails to load |
-| Inputs, data tables, navigation, empty and loading states | **Don't exist yet** | P05-B designs them: settings, full map, challenge board, save code, loaders |
+Every paper panel is `background: var(--paper)`, `box-shadow: var(--outline), var(--shadow-panel)`, `border-radius: var(--radius-panel)`. **No `backdrop-filter` anywhere** (P-1).
+
+### Driving HUD
+
+| Component | Specification |
+|---|---|
+| **Today's page (HUD-1)** | Paper panel, at most 190px wide, with ruled lines. Eyebrow "Today's page". Up to three lines, each with a checkbox: (1) the active ride or timed challenge in 14px/800 with distance and time left; (2) the stage goal with its amount; (3) the next story task. A finished line gets a drawn tick and a strike-through, then leaves after 2 s. With no ride it reads "Find a passenger". Tapping it opens the full list |
+| **Current-street banner (NAV-1)** | Sign style: `--sign-green`, white 2px border, white display text at 16px, 4px radius. Updates within 1 s of turning |
+| **Minimap (NAV-5)** | 112px circle (150px on desktop) with a 3px paper ring and an ink outline. Rotates with heading, with a floating "N". Road names appear along nearby roads. Markers all carry an ink ring. Tapping opens the full map |
+| **Warden signal (CORE-2, A-3)** | **Shape and colour:** STOP is a white-bordered octagon on `--stop` with "STOP" in white. GO is a circle on `--go` with an arrow and "GO" in ink. The same shapes are used on the minimap and in the world |
+| **Damage and speed chip (DMG-1)** | Paper chip: a keke icon, a damage bar and the percentage, then the speed. The bar fill is ink up to 50%, `--danger-text` above |
+| **Comfort (CORE-1, A-9)** | A labelled "Comfort" bar inside the ride line of Today's page. It never relies on colour alone: the label shows a word (Smooth, Bumpy, Rough) |
+| **Toast** | Paper panel, 14px/800, centred in the middle band, at most two at once, gone after 2.5 s. Good news has a tick icon and a `--success-text` left rule; bad news a warning icon and `--danger-text` |
+| **Context button** | Pill, `--keke` with the keke lip, display 16px, at least 48px tall |
+| **Pause button** | 48px paper circle with an ink outline and a pause icon (A-11) |
+| **Map credit** | 12px on a paper chip: "© OpenStreetMap contributors" (A-6, A-8) |
+
+### Controls
+
+| Component | Specification |
+|---|---|
+| **Swipe-to-drive ring (ACC-3)** | Appears where the finger lands: an 80px ring (2px ink, with a 2px paper outer ring so it shows on any scene) and a 30px `--keke` thumb with an ink outline that follows the finger, clamped to the ring. Fades out over 150ms on release. A first-run hint shows a ghost ring and "Drag to drive" until the first successful drag |
+| **Touch buttons** | Horn is always shown (48px, paper). The gas, brake and steer buttons appear only when the control setting is "Buttons" or "Both": 64px, paper at 92% opacity with an ink outline and ink icons, pressed state `--keke` (A-5) |
+| **Keyboard help** | Keycaps on `--paper-2` with a 6px radius. Desktop only |
+
+### World signs (rendered in 3D, same tokens)
+
+| Component | Specification |
+|---|---|
+| **Street name plate (NAV-2)** | `--sign-green` plate, white border and white display text, on a grey pole at each named junction |
+| **Junction signpost (NAV-3)** | One green blade per exit: an arrow and the place the road leads to ("→ Post Office"). At most three blades per post |
+| **Challenge marker (TIME-1)** | A yellow `--keke` board with ink text and a stopwatch icon |
+| **Pickup and drop-off (CORE-5)** | A `--keke` ring on the road edge for pickups and a `--route` ring for drop-offs, both with an ink casing. The passenger stands on the kerb beside it |
+| **Pothole (REAL-5)** | Dark patch with a lighter broken rim, readable from at least 30 m |
+
+### Cards and screens
+
+| Component | Specification |
+|---|---|
+| **Card** | Paper, 18px radius, `--shadow-card`, ruled lines at 10% `--laterite`, 16–24px padding, at most 560px wide. Opening a card moves focus to its first button, keeps focus inside, and returns it on close (A-10) |
+| **Dialogue card (STORY-1)** | Portrait (56px circle until portraits arrive: character colour, initial), name in display 22px, role in `--text-secondary`, line at 16px/600, buttons below. Subtitles are always shown |
+| **Buttons** | Primary: `--keke`, ink text, keke lip. Call to action: `--green`, paper text, green lip; one per screen. Outline: `--outline-soft`. All at least 48px tall, 12px radius, display 16px. Press moves 2px down. Focus ring: 3px `--ink` outline with a 2px offset |
+| **Ride summary** | Stars in `--gold-text` with the count in words ("4 of 5 stars"), then a table of fare, bonus and tip with dashed rules and a bold total |
+| **Title screen** | Haze wash over the live scene. Card: eyebrow, the title in display, "The Last Delivery", one line of lede, "Start driving" (green), "Continue" when a save exists, then links to Settings, Credits and Privacy |
+| **Pause menu** | Card: stage name, stars so far, Resume (primary), Settings, Full map, Challenges, Restart stage (outline, asks to confirm) |
+| **Settings (SYS-1, ACC-1, ACC-2)** | A list of rows on paper. Controls: Swipe, Buttons or Both, and steering sensitivity. Display: text size (Normal, Large, Larger), graphics quality (Low, Medium, High), Reduce motion. Sound: effects and music sliders. Privacy: the two diagnostics toggles and a link to the notice. Save: export and import save code. Toggles are 48px tall with a visible On or Off word |
+| **Full map (NAV-5)** | Full-screen map on `--map-ground` with road names, landmarks and markers, pinch and drag, a legend, and a paper close button |
+| **Challenge board (TIME-2)** | A list: name, limit, best time, and a bronze, silver or gold medal shown as an icon with the word beside it. Empty state: "No runs yet. Find a yellow board to start one." |
+| **Memory Book (CORE-3)** | A two-page notebook spread. Found pages show the render and Baba's note; missing pages show a dashed outline and a hint. Empty state: "Baba's notebook is waiting. Find the first place." |
+| **Save code** | A read-only code box with Copy, and an input with Import. An invalid code shows "That save code isn't valid" in `--danger-text` under the field |
+| **Stage select / city overview** | Paper map of Ilorin with a pin per stage: unlocked pins in `--keke`, locked ones outlined with a padlock icon and what unlocks them |
+
+### States
+
+| State | Specification |
+|---|---|
+| **Loading (title, zone)** | Haze screen with the keke icon driving along a dashed line that fills as the zone loads, plus the stage name. On the web, before fetching a stage: "Download Stage 2 (4 MB)?" with Download and Not now |
+| **Error** | Paper card, plain words and one action: "Couldn't load the map. Check your connection." with Retry. "Your browser paused the 3D view." with Resume. Never a raw error string |
+| **Offline** | Nothing is shown; the game keeps working |
+| **Update needed** | Card: "A newer version is ready" with Update |
+
+### Privacy and trust components
+
+| Component | Specification |
+|---|---|
+| **Age check (PRIV-2)** | Card after the first paid ride: "Are you 18 or older?" with Yes and No as equal outline buttons. No pre-selection |
+| **Diagnostics prompt (PRIV-2, PRIV-3)** | Shown only after Yes. Title "Help improve Ọ̀nà Ilé?". Two toggles, **both off**: "Send crash reports" and "Send anonymous play stats", each with one line saying what is sent and to whom. A line: "This is sent outside Nigeria. No name, account or location." Buttons of equal weight: Save choice and No thanks. A link to the privacy notice |
+| **Privacy screen (PRIV-4, PRIV-7)** | The same two toggles plus the notice text, reachable from the title screen and Settings |
+| **No cookie banner** | Not needed, because nothing optional loads before a choice (DATA_INVENTORY §4) |
+| **Credits** | Map data credit with a link, fonts, Three.js, sound sources, readers |
+| **Purchases (Online phase only)** | Not designed yet. When it is: a clear total in ₦ before paying, what is unlocked, and "Restore purchases" |
 
 ---
 
 ## 7. Icons and imagery
 
-- **Icons:** only two inline SVG chevrons (24px viewBox, filled, `currentColor`) for steering. Everything else is text ("GAS", "BRAKE", "HORN", "II" for pause, "N" for north) or a glyph (★ for stars).
-- **Characters:** coloured circles with an initial. Portraits come later (PRD art direction).
-- **World art:** flat-shaded low-poly shapes with vertex colours, plus canvas-drawn sprites for the coin, the notebook and the STOP/GO signs.
+- **One icon set: Lucide**, as inline SVG at a 2px stroke, in `currentColor`. Bundle only the icons used. No emoji as icons.
+- Icon-only buttons have an `aria-label`.
+- Stars are icons, not text glyphs.
+- Characters: coloured initial circles now; expressive portraits later (PRD art direction). Portraits are WebP, sized to 2× their display size.
+
+## 8. The landing and privacy page
+
+A single static page in the same system: the haze background, one paper card, the title, one sentence, a "Play now" green button, a short loop or still of the game, and links to Privacy and Credits. It must not use a centred hero with three icon cards. P11 covers its metadata.
 
 ---
 
-## 8. Signature moments
+## 9. How the P05-A findings are resolved
 
-1. **The cream notebook card.** Dialogue looks like a page from Baba's notebook: ruled laterite lines, ink text, a round character badge. It ties the UI to the story's central object.
-2. **Chunky "lipped" buttons in keke yellow and stripe green.** They look pressable, and they are the colours of the vehicle itself.
-3. **The round, rotating minimap with a cream ring and a floating N.** It reads as a dashboard dial.
-4. **Harmattan haze everywhere.** The page background, the title wash and the scene fog share one warm colour, so the UI and the world feel like one place.
+| Finding | Resolution |
+|---|---|
+| I-1 muted browns | `--text-secondary` and `--text-disabled` only |
+| I-2 greens and reds | `--go`, `--stop`, `--route`, plus text variants |
+| I-3 radii | Six radius tokens |
+| I-4 spacing | The 4-based scale |
+| I-5 font sizes | Whole-pixel scale, 12px minimum |
+| I-6 inline styles | Tokens and classes only |
+| I-7 two haze values | One `--haze`, used by the scene fog too |
+| I-8, P-2 fonts | Self-hosted, subset, three weights |
+| A-1 stars | `--gold-text`, with the count in words |
+| A-2, A-3 STOP and GO | Shape plus colour; ink on `--go`, white on the darker `--stop` |
+| A-4 eyebrow | `--laterite-text` |
+| A-5 control labels | Paper controls with ink icons |
+| A-6 small text | 12px minimum and a text size setting |
+| A-7 flash | Softened under reduced motion |
+| A-8 text over the scene | Everything sits on a paper chip |
+| A-9 comfort | Labelled, with a word |
+| A-10 focus | Focus moves into cards and back |
+| A-11 pause | 48px |
+| P-1 blur | Removed everywhere |
+| P-3 minimap | 20 redraws a second at most |
+| P-4 bars | `scaleX` transforms |
 
-## 9. Personality
+## 10. Build and review rule (P05-B step 4)
 
-**Warm, dusty, playful, handmade, local.**
-- **Warm and dusty:** haze, laterite and paper tones instead of white, grey or black.
-- **Playful:** the rounded Baloo 2 display face, lipped buttons, star glyphs.
-- **Handmade:** notebook rules, dashed table lines, inset shading instead of crisp borders.
-- **Local:** the palette comes from the keke (yellow and green) and from Ilorin's earth and sky.
-
----
-
-## 10. Findings
-
-Nothing here is fixed in the prototype. Each item is input for P05-B and the M1–M2 rebuild.
-
-### Inconsistencies
-
-| # | Issue | Suggested clean-up |
-|---|---|---|
-| I-1 | Three near-identical muted browns on cream: `#6F5F49`, `#5E5040`, `#7A6A55` | Two tokens: `--text-secondary` and `--text-fine` |
-| I-2 | Three "go" greens (`--go #38A95B`, route `#36D07A`, sign `#5BE38A`) and two reds (`--stop #D9432F`, `#C0392B`) | One green and one red for state, plus one named `--route` |
-| I-3 | Radii of 5, 6, 12, 14, 18, 22 and 24 px | The six radius tokens in §4 |
-| I-4 | Spacing uses 16 different values | The 4-based scale in §3 |
-| I-5 | Font sizes include 10.5, 11.5, 12.5, 14.5 and 16.5 px | A whole-pixel type scale |
-| I-6 | Inline styles on the pause heading and one eyebrow. `#124A2F`, `#FF9B87` and `#fff` are hard-coded | Promote to tokens and classes |
-| I-7 | The scene haze `#E3C9A0` differs slightly from `--haze #E6CFA8` | Use one value |
-| I-8 | Baloo 2 weight 600 is downloaded but unused | Load 800 only |
-
-### Accessibility
-
-| # | Issue | Evidence | Suggested fix |
-|---|---|---|---|
-| A-1 | Star rating and title accent in `--keke-deep` on cream | Contrast 2.47:1 (large text and graphics need 3:1) | A darker gold, about `#9A7208`, or ink stars |
-| A-2 | White "GO" on `--go` | 3.0:1 at 12.5px bold (needs 4.5:1). STOP on `--stop` is 4.38:1, also just short | Ink text on `--go`, or darker fills |
-| A-3 | **STOP and GO differ mainly by colour** | Red and green chips, red and green minimap dots | Add shape: an octagon for STOP, an arrow or circle for GO (PRD ACC-2 already requires it) |
-| A-4 | Eyebrow in `--laterite` on cream | 4.02:1 at 11.5px (needs 4.5:1) | A darker laterite for text, about `#9A4F2E` |
-| A-5 | "BRAKE" and "GAS" labels on tinted controls | About 3.8:1 over haze, and it varies with the scene behind | More opaque fills, or icons with a dark backing |
-| A-6 | Small text: 10.5px labels, 11.5px fine print, 10.5px map credit | Hard to read on a phone in sunlight | 12px minimum. PRD ACC-2 adds a text size setting |
-| A-7 | The photo flash ignores reduced motion | Full-screen white at 90% | Skip or soften it when reduced motion is set |
-| A-8 | Text sits directly on the live scene (speed, map credit) | Ink on haze is 11.7:1, but buildings pass behind it | Give both a small backing chip |
-| A-9 | The comfort bar's meaning is only in a `title` tooltip | Hover-only, so it's invisible on touch | A visible "Comfort" label |
-| A-10 | The dialogue card has no focus management | Focus isn't moved into the card or trapped there | Move focus to the first button, and return it on close |
-| A-11 | The pause button is 34px | Under the 44px touch-target minimum | 44px |
-
-**Passing:**
-- ink on paper: 16.5:1;
-- paper on the HUD panel: 8.4:1;
-- labels on the panel: 4.9:1;
-- money on the panel: 5.4:1;
-- ink on the keke button: 10.5:1;
-- paper on the green button: 6.0:1;
-- every button has a visible focus ring.
-
-### Performance on mid-range Android
-
-| # | Concern | Suggested fix |
-|---|---|---|
-| P-1 | `backdrop-filter: blur(6px)` on three HUD panels over a WebGL canvas that redraws every frame. The browser has to re-blur each frame, which is costly in Android WebView [not measured on a device] | Drop the blur and raise the panel opacity to about .82, or keep blur only in the high-quality setting |
-| P-2 | Five font files from a third-party CDN delay first paint and need a connection | Self-host two or three WOFF2 files, subset to Latin plus Yoruba marks, with `font-display: swap` |
-| P-3 | The minimap canvas redraws every frame at 300×300 | Redraw at 15–20 fps, or only when the player has moved |
-| P-4 | Bar width transitions cause layout work | Animate `transform: scaleX()` instead |
+- Build **one screen first: the driving HUD at 360px portrait** (M2), then stop for the owner's review.
+- For every screen: Playwright screenshots at 360px portrait and desktop width, a check against §2's two rules, and a note of anything that had to bend.
+- Test legibility on a real phone outdoors before the M6 release.
