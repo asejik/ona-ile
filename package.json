@@ -1,0 +1,31 @@
+{
+  "name": "ona-ile",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . && prettier --check \"src/**/*.{ts,css}\" \"tests/**/*.ts\" index.html",
+    "format": "prettier --write \"src/**/*.{ts,css}\" \"tests/**/*.ts\" index.html",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "zone": "python -I tools/build_zone.py data/osm/zone1-post-office_2026-11-07.json public/zones/zone1-post-office.json"
+  },
+  "dependencies": {
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.64.1",
+    "@types/three": "0.187.0",
+    "eslint": "10.14.0",
+    "prettier": "3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "vite": "8.3.5",
+    "vitest": "5.1.0"
+  }
+}
