@@ -10,13 +10,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Prompt suite: docs/prompts/ (every change follows P06).
 
 ## Commands
-The rebuild doesn't exist yet. Milestone M1 creates it, so update these lines then.
-- Type check: `npx tsc --noEmit`
-- Lint: `npm run lint`
+- Dev server: `npm run dev`
+- Type check: `npm run typecheck`
+- Lint and formatting: `npm run lint` (fix formatting with `npm run format`)
 - Build: `npm run build`
-- Unit tests: `npm test` (Vitest). One file: `npx vitest run src/sim/damage.test.ts`
-- End-to-end smoke tests: `npx playwright test`
-- Zone build: `python tools/build_zone.py <osm map.json> public/zones/<id>.json`
+- Unit tests: `npm test` (Vitest). One file: `npx vitest run tests/unit/vehicle.test.ts`
+- Browser tests: `npm run build && npm run test:e2e` (phone and desktop; WebGL is software-rendered, so they're slow)
+- Zone build: `npm run zone` (writes `public/zones/zone1-post-office.json`; CI fails if it drifts)
 - Android: `npx cap sync android && npx cap run android` (JAVA_HOME = Android Studio's bundled JDK 21; SDK at `D:\Android`)
 
 **Prototype v0.1 (`baba-keke/`, reference only, to be ported in M2):**
