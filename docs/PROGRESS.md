@@ -6,7 +6,7 @@
 - **Planning is done:** PROMPT_PLAN (P00), IDEA_BRIEF (P01), PROJECT_PLAN, DATA_INVENTORY draft and CLAUDE.md (P02).
 - **PRD:** https://claude.ai/artifact/DbR5D4bPuhmqcZtjaHE8A1. ACC-3 swipe-to-drive was added on 2026-11-07.
 - **Repo:** `https://github.com/asejik/ona-ile` (private). The first commit was pushed on 2026-11-11.
-- **M0 is done:** P03, P04 and P05 (A and B). Next: **M1, the walking skeleton**.
+- **M0 is done.** **M1a, M1b and M1c are done:** the game is live at https://ona-ile.asejik.com (Cloudflare Pages), with security headers, opt-in crash reporting and an uptime monitor. Next: **M1d, the Android debug APK**.
 
 ## Log
 
@@ -21,3 +21,4 @@
 | 2026-11-11 | M1a web skeleton | Vite + TypeScript + Three.js project. Zone as JSON, road network, collision, keke physics, scene, keyboard and touch buttons, street-name sign. 23 unit tests, browser test at phone and desktop size, CI job | M1b privacy plumbing | Placeholder box keke and lighting. Moderate npm audit finding in lint tooling only (minimatch via typescript-eslint) |
 | 2026-11-12 | M1b privacy plumbing | `src/platform/`: `config.json` switch (PRIV-11), consent record (PRIV-3), crash reporting off by default and loaded only after opt-in (PRIV-1), allow-list scrubbing (PRIV-5). Self-hosted fonts (PRIV-10). Draft `privacy.html` (PRIV-7). 13 new unit tests and 6 browser tests. Review findings (8) fixed: no public source maps, boot failures reported, notice matches fields sent, privacy page uses the game's tokens and fonts, URL-only query scrubbing, full frame URLs, older-WebView timeout, 48px link targets | M1c: live on Cloudflare Pages | The opt-in prompt itself is M2, so no player can opt in yet. Privacy notice needs the controller name and a DPO review. Sentry dashboard settings are actions for the owner |
 | 2026-11-12 | M1c prep (in repo) | `public/_headers` with CSP, security and caching headers; browser tests prove the game, crash reports and privacy page work under the CSP and that it really applies. Cloudflare settings in SETUP.md | Owner: create the Cloudflare Pages project and the DNS record; then verify live and add uptime monitoring | Not deployed yet. The CSP is tested by injecting it locally, not on Cloudflare |
+| 2026-11-12 | M1c done | PR #11 merged: CSP, security and caching headers verified live (assets a year, zones a day, `config.json` no-cache). Custom domain `ona-ile.asejik.com` active with HTTPS. Live play at phone and desktop size: drives, fonts render, no errors, only requests to its own origin. UptimeRobot on `config.json` every 5 minutes | M1d Android APK | `/privacy.html` redirects to `/privacy` on Cloudflare (fine). Unknown paths return the game page with status 200 |

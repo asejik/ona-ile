@@ -14,7 +14,7 @@ Set up 2026-11-11. Rigor level STANDARD. Re-check yearly, and again at M1 when t
 | 6 | Environments and keys | DONE (2026-11-12) | No secrets. Cloudflare Pages builds `main` as production and every other branch as a preview (`<branch>.ona-ile.pages.dev`, marked `noindex` in `public/_headers`). Crash reporting runs only in production builds | Open a branch's preview URL: it works and sends `X-Robots-Tag: noindex` |
 | 7 | AI tool guardrails | DONE | `CLAUDE.md`; `.claude/settings.json` denies reading `.env*`, keystores and `keystore.properties`, plus force-push, `git reset --hard`, `rm -rf` and `git clean -fdx`. Personal overrides go in `.claude/settings.local.json` (gitignored) | Ask Claude Code to show a `.env` file and it's refused. A deny rule covers only Claude's own tools, so keep production secrets off this PC |
 | 8 | Strictness | PARTIAL (2026-11-12) | `tsconfig.json`: `strict`, `noUnusedLocals`, `noUnusedParameters`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`. ESLint with typescript-eslint, and Prettier. knip (unused code) not added yet | `npm run typecheck` and `npm run lint` pass |
-| 9 | Monitoring | PARTIAL (2026-11-12) | Sentry (EU region) in `src/platform/crash.ts`: off until the player opts in, every data-collection category off, events scrubbed by `src/platform/scrub.ts`, switchable from `public/config.json`. **Still to do:** an uptime monitor once the site is live (M1c) | The browser test `tests/e2e/privacy.spec.ts` passes. A test error with opt-in appears in the Sentry project |
+| 9 | Monitoring | DONE (2026-11-12) | Sentry (EU region) in `src/platform/crash.ts`: off until the player opts in, every data-collection category off, events scrubbed by `src/platform/scrub.ts`, switchable from `public/config.json`. **UptimeRobot** checks `https://ona-ile.asejik.com/config.json` every 5 minutes and emails the owner | The browser test `tests/e2e/privacy.spec.ts` passes. UptimeRobot shows the monitor Up |
 | 10 | Accounts and billing | PARTIAL | 2FA is on for GitHub and Google (you confirmed, 2026-11-11). The domain lock is on. Auto-renew needs checking (below) | Each account's security page shows 2FA on |
 | 11 | Backups | N/A for server data | Git (code and content). **Off-repo, in two places:** Blender `.blend` sources and the Android upload keystore with its password | Restore test: clone the repo on another folder and run the zone check. Open one `.blend` from the backup |
 | 12 | Docs seeded | DONE | `docs/prompts/`, `docs/PROMPT_PLAN.md`, `docs/PROGRESS.md`, `docs/audits/FINDINGS.md`, `docs/DATA_INVENTORY.md`, this file, `.github/ISSUE_TEMPLATE/bug_report.md` (PRIV-12) | — |
@@ -42,7 +42,7 @@ Set up 2026-11-11. Rigor level STANDARD. Re-check yearly, and again at M1 when t
 | Build output directory | `dist` |
 | Environment variable | `NODE_VERSION` = `24` |
 | Web Analytics | **Off** (it would add a tracker the privacy plan doesn't allow) |
-| Custom domain | `ona-ile.asejik.com` (CNAME to `ona-ile.pages.dev` at the DNS host, WhoGoHost/GO54) |
+| Custom domain | `ona-ile.asejik.com`: CNAME `ona-ile` → `ona-ile.pages.dev` at WhoGoHost/GO54. Active, HTTPS by Cloudflare (2026-11-12) |
 
 **What `public/_headers` sets:** a strict Content-Security-Policy (only the game's own files plus the Sentry EU endpoint), `nosniff`, `no-referrer`, a Permissions-Policy that blocks camera, microphone and location, and caching (build files for a year, zones for a day, `config.json` never cached).
 
