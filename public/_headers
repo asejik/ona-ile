@@ -15,9 +15,11 @@
 /zones/*
   Cache-Control: public, max-age=86400, must-revalidate
 
-# The off switch must take effect on the next launch.
+# The off switch must take effect on the next launch. The Android app (origin https://localhost) reads it too.
 /config.json
   Cache-Control: no-cache, max-age=0, must-revalidate
+  Access-Control-Allow-Origin: https://localhost
+  Vary: Origin
 
 # Preview deployments (every branch) stay out of search engines.
 https://:branch.ona-ile.pages.dev/*

@@ -3,6 +3,7 @@ import './style.css';
 import { loadConfig } from './platform/config';
 import { crashReportsAllowed, loadConsent } from './platform/consent';
 import { reportError, startCrashReporting } from './platform/crash';
+import { configUrl, PLATFORM } from './platform/native';
 import { browserStore } from './platform/storage';
 import { createScene } from './render/scene';
 import { createVehicle, stepVehicle, type VehicleState } from './sim/vehicle';
@@ -13,7 +14,7 @@ import { startPose } from './world/start';
 import { loadZone } from './world/zone';
 
 const ZONE_URL = `${import.meta.env.BASE_URL}zones/zone1-post-office.json`;
-const CONFIG_URL = `${import.meta.env.BASE_URL}config.json`;
+const CONFIG_URL = configUrl(import.meta.env.BASE_URL);
 
 /** Read-only handle for tests and debugging. Holds no personal data. */
 interface DebugHandle {
@@ -86,7 +87,7 @@ async function startDiagnostics(): Promise<void> {
   const config = await loadConfig(CONFIG_URL, store, (url, init) => fetch(url, init));
   const on =
     crashReportsAllowed(loadConsent(store), config) &&
-    (await startCrashReporting(`ona-ile@${__APP_VERSION__}`, 'web'));
+    (await startCrashReporting(`ona-ile@${__APP_VERSION__}`, PLATFORM));
   window.__ona.crashReporting = on ? 'on' : 'off';
 }
 
