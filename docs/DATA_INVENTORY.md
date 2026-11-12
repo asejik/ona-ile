@@ -100,7 +100,7 @@ Last reviewed: 2026-11-07
 |---|---|---|---|
 | 2026-11-07 | First draft | P02 planning | Yes: P03 at M0 |
 | 2026-11-07 | Moved to the suite template | Templates added | Same |
-| 2026-11-12 | Crash reporting built (M1b). Verified: Sentry org is in the EU region (DSN host `ingest.de.sentry.io`); events carry `infer_ip: never`, no user, request, breadcrumbs or contexts; the SDK loads only after opt-in. Sentry 11 has no `sendDefaultPii`; `dataCollection` is set to off for every category instead. Still to verify in the Sentry dashboard: "Prevent Storing of IP Addresses", retention, DPA accepted | M1b, `src/platform/` | No: within what P03 approved. P03 AUDIT before M6 as planned |
+| 2026-11-12 | Crash reporting built (M1b). Verified: Sentry org is in the EU region (DSN host `ingest.de.sentry.io`); events carry `infer_ip: never`, no user, request, breadcrumbs or contexts; the SDK loads only after opt-in. Sentry 11 has no `sendDefaultPii`; `dataCollection` is set to off for every category instead. Sentry dashboard (2026-11-12, owner): Prevent Storing of IP Addresses and server-side data scrubbing required for all projects, DPA accepted. Retention still to note | M1b, `src/platform/` | No: within what P03 approved. P03 AUDIT before M6 as planned |
 | 2026-11-07 | Completed: lawful bases, regions, retention, consent design, the 18+ rule for diagnostics, the Umami fallback | P03 LIGHT DESIGN | P03 AUDIT before the M6 community release |
 
 ## 8. Open items (yours or the DPO's)

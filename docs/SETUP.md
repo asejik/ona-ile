@@ -9,7 +9,7 @@ Set up 2026-11-11. Rigor level STANDARD. Re-check yearly, and again at M1 when t
 | 1 | Version control | DONE | `.gitignore`, `.gitattributes` (LF line endings), private remote `github.com/asejik/ona-ile`, `LICENSE` (all rights reserved), `NOTICE.md` (OSM / ODbL) | `git status` is clean after a build. `.env` files and keystores never show up |
 | 2 | Protected `main` | **N/A on GitHub Free with a private repo** | — | Rule kept by habit and CLAUDE.md: work on branches, merge with pull requests. Revisit if the repo goes public or you get GitHub Pro |
 | 3 | CI | PARTIAL | `.github/workflows/ci.yml`: gitleaks, plus a check that `zone1.js` rebuilds exactly from the pinned OSM extract | Actions tab shows green. Hand-edit `baba-keke/zone1.js` on a branch and the zone job fails. **M1 adds** typecheck, lint, unit tests, build and Playwright |
-| 4 | Secret protection | DONE (no push protection) | gitleaks scans the full history in CI. The history started on 2026-11-11, and the prototype holds no keys | Add a fake `AKIA…` key on a branch and the secrets job fails. `.env.example` arrives in M1 |
+| 4 | Secret protection | DONE (no push protection) | gitleaks scans the full history in CI. `.gitleaks.toml` adds one narrow exception: the game's storage-key names (`onaile.<name>.v<n>`), which the generic API-key rule mistook for a secret. The history started on 2026-11-11, and the prototype holds no keys | Add a fake `AKIA…` key on a branch and the secrets job fails. `.env.example` arrives in M1 |
 | 5 | Dependency hygiene | PARTIAL | `.github/dependabot.yml`: GitHub Actions monthly, grouped, 7-day cooldown | Dependabot shows under Insights → Dependency graph. **M1 adds** npm with the same policy, and the lockfile |
 | 6 | Environments and keys | N/A (no secrets in v1.0) | — | M1 lists the Sentry DSN and Umami website ID **by name** for each environment here |
 | 7 | AI tool guardrails | DONE | `CLAUDE.md`; `.claude/settings.json` denies reading `.env*`, keystores and `keystore.properties`, plus force-push, `git reset --hard`, `rm -rf` and `git clean -fdx`. Personal overrides go in `.claude/settings.local.json` (gitignored) | Ask Claude Code to show a `.env` file and it's refused. A deny rule covers only Claude's own tools, so keep production secrets off this PC |
@@ -30,12 +30,11 @@ Set up 2026-11-11. Rigor level STANDARD. Re-check yearly, and again at M1 when t
    - Turn on 2FA for the GO54 login, if it offers it.
 5. **Spending caps:** nothing in v1.0 bills by usage. Re-check if you upgrade any plan.
 
-## Actions for you in the Sentry dashboard
+## Sentry dashboard settings
 
-1. Settings → Security & Privacy: turn on **Prevent Storing of IP Addresses** and **Data Scrubber**.
-2. Settings → Legal & Compliance: accept the **Data Processing Addendum**.
-3. Your account → Security: turn on two-factor authentication.
-4. Note the event retention period shown for your plan in `docs/DATA_INVENTORY.md`.
+- ✅ 2026-11-12, organisation level: **Require Data Scrubber**, **Require Using Default Scrubbers** and **Prevent Storing of IP Addresses** are on for all projects.
+- ✅ 2026-11-12: Data Processing Addendum accepted, and two-factor sign-in on (owner confirmed).
+- To do: note the event retention period shown for your plan in `docs/DATA_INVENTORY.md`.
 
 ## Renewal dates
 

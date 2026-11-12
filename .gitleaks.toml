@@ -1,0 +1,8 @@
+# gitleaks configuration: the default rules, plus narrow exceptions for values that are not secrets.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "The game's own browser-storage key names, e.g. 'onaile.diagnostics.v1'"
+regexTarget = "secret"
+regexes = ['''^onaile\.[a-z]+\.v[0-9]+$''']
