@@ -9,12 +9,12 @@ Set up 2026-11-11. Rigor level STANDARD. Re-check yearly, and again at M1 when t
 | 1 | Version control | DONE | `.gitignore`, `.gitattributes` (LF line endings), private remote `github.com/asejik/ona-ile`, `LICENSE` (all rights reserved), `NOTICE.md` (OSM / ODbL) | `git status` is clean after a build. `.env` files and keystores never show up |
 | 2 | Protected `main` | **N/A on GitHub Free with a private repo** | — | Rule kept by habit and CLAUDE.md: work on branches, merge with pull requests. Revisit if the repo goes public or you get GitHub Pro |
 | 3 | CI | DONE (2026-11-12) | `.github/workflows/ci.yml`: gitleaks; both zone files rebuild exactly from the pinned OSM extract; `npm ci`, `npm audit --audit-level=high`, type check, lint, unit tests, build, and the Playwright browser test at phone and desktop size. About 3–5 minutes | The Actions tab shows green. A type error on a branch fails the `app` job |
-| 4 | Secret protection | DONE (no push protection) | gitleaks scans the full history in CI. The history started on 2026-11-11, and the prototype holds no keys | Add a fake `AKIA…` key on a branch and the secrets job fails. `.env.example` arrives in M1 |
+| 4 | Secret protection | DONE (no push protection) | gitleaks scans the full history in CI. `.gitleaks.toml` adds one narrow exception: the game's storage-key names (`onaile.<name>.v<n>`), which the generic API-key rule mistook for a secret. The history started on 2026-11-11, and the prototype holds no keys | Add a fake `AKIA…` key on a branch and the secrets job fails. `.env.example` arrives in M1 |
 | 5 | Dependency hygiene | DONE (2026-11-12) | `package-lock.json` committed, exact versions pinned. `.github/dependabot.yml`: GitHub Actions and npm, monthly, grouped, 7-day cooldown | Dependabot pull requests appear monthly. **Don't merge TypeScript 7 yet:** `typescript-eslint` 8 supports TypeScript below 6.1 only |
 | 6 | Environments and keys | N/A (no secrets in v1.0) | — | M1 lists the Sentry DSN and Umami website ID **by name** for each environment here |
 | 7 | AI tool guardrails | DONE | `CLAUDE.md`; `.claude/settings.json` denies reading `.env*`, keystores and `keystore.properties`, plus force-push, `git reset --hard`, `rm -rf` and `git clean -fdx`. Personal overrides go in `.claude/settings.local.json` (gitignored) | Ask Claude Code to show a `.env` file and it's refused. A deny rule covers only Claude's own tools, so keep production secrets off this PC |
 | 8 | Strictness | PARTIAL (2026-11-12) | `tsconfig.json`: `strict`, `noUnusedLocals`, `noUnusedParameters`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`. ESLint with typescript-eslint, and Prettier. knip (unused code) not added yet | `npm run typecheck` and `npm run lint` pass |
-| 9 | Monitoring | DEFERRED to M1 | — | Sentry with PRIV-5 scrubbing, plus UptimeRobot (free) on the live URL |
+| 9 | Monitoring | PARTIAL (2026-11-12) | Sentry (EU region) in `src/platform/crash.ts`: off until the player opts in, every data-collection category off, events scrubbed by `src/platform/scrub.ts`, switchable from `public/config.json`. **Still to do:** an uptime monitor once the site is live (M1c) | The browser test `tests/e2e/privacy.spec.ts` passes. A test error with opt-in appears in the Sentry project |
 | 10 | Accounts and billing | PARTIAL | 2FA is on for GitHub and Google (you confirmed, 2026-11-11). The domain lock is on. Auto-renew needs checking (below) | Each account's security page shows 2FA on |
 | 11 | Backups | N/A for server data | Git (code and content). **Off-repo, in two places:** Blender `.blend` sources and the Android upload keystore with its password | Restore test: clone the repo on another folder and run the zone check. Open one `.blend` from the backup |
 | 12 | Docs seeded | DONE | `docs/prompts/`, `docs/PROMPT_PLAN.md`, `docs/PROGRESS.md`, `docs/audits/FINDINGS.md`, `docs/DATA_INVENTORY.md`, this file, `.github/ISSUE_TEMPLATE/bug_report.md` (PRIV-12) | — |
@@ -30,6 +30,12 @@ Set up 2026-11-11. Rigor level STANDARD. Re-check yearly, and again at M1 when t
    - Turn on 2FA for the GO54 login, if it offers it.
 5. **Spending caps:** nothing in v1.0 bills by usage. Re-check if you upgrade any plan.
 
+## Sentry dashboard settings
+
+- ✅ 2026-11-12, organisation level: **Require Data Scrubber**, **Require Using Default Scrubbers** and **Prevent Storing of IP Addresses** are on for all projects.
+- ✅ 2026-11-12: Data Processing Addendum accepted, and two-factor sign-in on (owner confirmed).
+- To do: note the event retention period shown for your plan in `docs/DATA_INVENTORY.md`.
+
 ## Renewal dates
 
 | What | Date |
@@ -39,4 +45,4 @@ Set up 2026-11-11. Rigor level STANDARD. Re-check yearly, and again at M1 when t
 
 ## Environment variables (by name only)
 
-None yet. M1 adds them, for example `VITE_SENTRY_DSN` and `VITE_UMAMI_WEBSITE_ID`, per environment.
+None. The Sentry DSN is a public identifier and lives in `src/platform/crash.ts`. Crash reporting runs in production builds only, so no per-environment value is needed.
