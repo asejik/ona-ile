@@ -31,8 +31,11 @@ type Fetcher = (url: string, init: { cache: 'no-store'; signal: AbortSignal }) =
 
 /** Fetches config.json; falls back to the last good copy, then to SAFE_CONFIG. Never throws. */
 export async function loadConfig(url: string, store: KeyValueStore, fetcher: Fetcher): Promise<RemoteConfig> {
+  // AbortController rather than AbortSignal.timeout(), which older Android WebViews lack.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const res = await fetcher(url, { cache: 'no-store', signal: AbortSignal.timeout(TIMEOUT_MS) });
+    const res = await fetcher(url, { cache: 'no-store', signal: controller.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const config = parseConfig(await res.json());
     writeJson(store, CACHE_KEY, config);
@@ -40,5 +43,7 @@ export async function loadConfig(url: string, store: KeyValueStore, fetcher: Fet
   } catch {
     const cached = readJson(store, CACHE_KEY);
     return cached === null ? SAFE_CONFIG : parseConfig(cached);
+  } finally {
+    clearTimeout(timer);
   }
 }

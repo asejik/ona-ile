@@ -121,6 +121,10 @@ describe('crash report scrubbing (PRIV-5)', () => {
     expect(scrubText('Failed https://ona-ile.asejik.com/?ref=someone#frag')).toBe(
       'Failed https://ona-ile.asejik.com/?[removed]',
     );
+    // A '?' or '#' outside a URL is ordinary text and must survive.
+    expect(scrubText("a?.b is not a function; Unexpected token '#private'")).toBe(
+      "a?.b is not a function; Unexpected token '#private'",
+    );
     expect(scrubText('x'.repeat(10) + ' ' + 'word '.repeat(200)).length).toBeLessThanOrEqual(300);
   });
 
@@ -188,7 +192,13 @@ describe('crash report scrubbing (PRIV-5)', () => {
             mechanism: { type: 'onerror', handled: false },
             stacktrace: {
               frames: [
-                { filename: '/assets/index-abc.js', function: 'frame', lineno: 10, colno: 5, in_app: true },
+                {
+                  filename: 'https://ona-ile.asejik.com/assets/index-abc.js',
+                  function: 'frame',
+                  lineno: 10,
+                  colno: 5,
+                  in_app: true,
+                },
               ],
             },
           },

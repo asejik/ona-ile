@@ -74,7 +74,7 @@ test('after opting in: a scrubbed crash report is sent, and nothing else (PRIV-5
   expect(sent).toContain('test crash for [email]');
   expect(sent).not.toContain('ada@example.com');
   expect(sent).toContain('"infer_ip":"never"');
-  for (const banned of ['"user"', 'ip_address', '"request"', '"breadcrumbs"', '"extra"', baseURL!]) {
+  for (const banned of ['"user"', 'ip_address', '"request"', '"breadcrumbs"', '"extra"', '"url"']) {
     expect(sent, `crash report must not contain ${banned}`).not.toContain(banned);
   }
   const outside = urls.filter((u) => !u.startsWith(baseURL!));
@@ -94,10 +94,33 @@ test('the config.json switch turns crash reports off, even after opt-in (PRIV-11
   expect(sentryBodies).toEqual([]);
 });
 
+test('a boot failure is reported when opted in', async ({ page }) => {
+  const { sentryBodies } = await watch(page);
+  await optIn(page);
+  await page.route('**/zones/*.json', (route) => route.fulfill({ status: 500, body: '' }));
+  await page.goto('/');
+  await expect(page.locator('#error')).toBeVisible();
+  await expect.poll(() => sentryBodies.join(' '), { timeout: 15_000 }).toContain("Couldn't load the map");
+});
+
+test('the deployed build has no source maps', async ({ request }) => {
+  const html = await (await request.get('/')).text();
+  const js = html.match(/assets\/[^"]+\.js/)?.[0];
+  expect(js).toBeTruthy();
+  const body = await (await request.get(`/${js}`)).text();
+  expect(body).not.toContain('sourceMappingURL');
+  // The preview server answers unknown paths with index.html, so check the body, not the status.
+  expect(await (await request.get(`/${js}.map`)).text()).not.toContain('"mappings"');
+});
+
 test('the privacy page opens from the game', async ({ page }) => {
   await page.goto('/');
   await page.waitForFunction(() => window.__ona?.ready === true, undefined, { timeout: 60_000 });
   await page.getByRole('link', { name: 'Privacy' }).click();
   await expect(page.getByRole('heading', { name: 'Privacy notice' })).toBeVisible();
   await expect(page.getByText('Draft, version')).toBeVisible();
+  // Same fonts as the game, and the page can scroll on a phone.
+  await page.evaluate(() => document.fonts.ready);
+  expect(await page.evaluate(() => document.fonts.check('800 16px "Baloo 2"'))).toBe(true);
+  expect(await page.evaluate(() => getComputedStyle(document.body).overflowY)).toBe('auto');
 });

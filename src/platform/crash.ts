@@ -5,6 +5,7 @@ const SENTRY_DSN =
   'https://308e40961887df2cfdc845430445398d@o4512250670219264.ingest.de.sentry.io/4512417772994640';
 
 let started = false;
+let capture: ((err: unknown) => void) | undefined;
 
 /**
  * Starts crash reporting. Call only after crashReportsAllowed() is true (PRIV-1).
@@ -38,6 +39,12 @@ export async function startCrashReporting(release: string, platform: 'web' | 'an
     beforeSend: (event) => scrubEvent(event as unknown as CrashEvent) as unknown as typeof event,
     beforeBreadcrumb: () => null,
   });
+  capture = (err) => Sentry.captureException(err);
   started = true;
   return true;
+}
+
+/** Sends an error the game caught itself (so global handlers never see it). Does nothing unless started. */
+export function reportError(err: unknown): void {
+  capture?.(err);
 }

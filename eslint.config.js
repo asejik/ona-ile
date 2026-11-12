@@ -7,7 +7,7 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   {
     languageOptions: {
-      globals: { window: 'readonly', document: 'readonly', performance: 'readonly', console: 'readonly', fetch: 'readonly', requestAnimationFrame: 'readonly', AbortSignal: 'readonly', Response: 'readonly' },
+      globals: { window: 'readonly', document: 'readonly', performance: 'readonly', console: 'readonly', fetch: 'readonly', requestAnimationFrame: 'readonly', AbortSignal: 'readonly', AbortController: 'readonly', setTimeout: 'readonly', clearTimeout: 'readonly', Response: 'readonly' },
     },
   },
 );
