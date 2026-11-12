@@ -1,4 +1,9 @@
+import './fonts.css';
 import './style.css';
+import { loadConfig } from './platform/config';
+import { crashReportsAllowed, loadConsent } from './platform/consent';
+import { startCrashReporting } from './platform/crash';
+import { browserStore } from './platform/storage';
 import { createScene } from './render/scene';
 import { createVehicle, stepVehicle, type VehicleState } from './sim/vehicle';
 import { createInput } from './ui/input';
@@ -8,6 +13,7 @@ import { startPose } from './world/start';
 import { loadZone } from './world/zone';
 
 const ZONE_URL = `${import.meta.env.BASE_URL}zones/zone1-post-office.json`;
+const CONFIG_URL = `${import.meta.env.BASE_URL}config.json`;
 
 /** Read-only handle for tests and debugging. Holds no personal data. */
 interface DebugHandle {
@@ -15,13 +21,15 @@ interface DebugHandle {
   player?: VehicleState;
   road?: string;
   stats?: { calls: number; triangles: number };
+  /** 'pending' until the remote switch and the player's choice have been checked. */
+  crashReporting: 'pending' | 'on' | 'off';
 }
 declare global {
   interface Window {
     __ona: DebugHandle;
   }
 }
-window.__ona = { ready: false };
+window.__ona = { ready: false, crashReporting: 'pending' };
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -65,12 +73,26 @@ async function boot(): Promise<void> {
 
   $('loading').hidden = true;
   $('hud').hidden = false;
-  window.__ona = { ready: true, player, road: '', stats: scene.stats };
+  Object.assign(window.__ona, { ready: true, player, road: '', stats: scene.stats });
   requestAnimationFrame((t) => {
     last = t;
     frame(t);
   });
 }
+
+/** Crash reports start only if the player opted in and config.json allows it (PRIV-1, PRIV-11). */
+async function startDiagnostics(): Promise<void> {
+  const store = browserStore();
+  const config = await loadConfig(CONFIG_URL, store, (url, init) => fetch(url, init));
+  const on =
+    crashReportsAllowed(loadConsent(store), config) &&
+    (await startCrashReporting(`ona-ile@${__APP_VERSION__}`, 'web'));
+  window.__ona.crashReporting = on ? 'on' : 'off';
+}
+
+startDiagnostics().catch(() => {
+  window.__ona.crashReporting = 'off';
+});
 
 boot().catch((err: unknown) => {
   $('loading').hidden = true;

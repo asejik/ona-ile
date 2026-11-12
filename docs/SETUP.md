@@ -14,7 +14,7 @@ Set up 2026-11-11. Rigor level STANDARD. Re-check yearly, and again at M1 when t
 | 6 | Environments and keys | N/A (no secrets in v1.0) | — | M1 lists the Sentry DSN and Umami website ID **by name** for each environment here |
 | 7 | AI tool guardrails | DONE | `CLAUDE.md`; `.claude/settings.json` denies reading `.env*`, keystores and `keystore.properties`, plus force-push, `git reset --hard`, `rm -rf` and `git clean -fdx`. Personal overrides go in `.claude/settings.local.json` (gitignored) | Ask Claude Code to show a `.env` file and it's refused. A deny rule covers only Claude's own tools, so keep production secrets off this PC |
 | 8 | Strictness | DEFERRED to M1 | — | `tsconfig.json` strict settings, ESLint and Prettier, knip |
-| 9 | Monitoring | DEFERRED to M1 | — | Sentry with PRIV-5 scrubbing, plus UptimeRobot (free) on the live URL |
+| 9 | Monitoring | PARTIAL (2026-11-12) | Sentry (EU region) in `src/platform/crash.ts`: off until the player opts in, every data-collection category off, events scrubbed by `src/platform/scrub.ts`, switchable from `public/config.json`. **Still to do:** an uptime monitor once the site is live (M1c) | The browser test `tests/e2e/privacy.spec.ts` passes. A test error with opt-in appears in the Sentry project |
 | 10 | Accounts and billing | PARTIAL | 2FA is on for GitHub and Google (you confirmed, 2026-11-11). The domain lock is on. Auto-renew needs checking (below) | Each account's security page shows 2FA on |
 | 11 | Backups | N/A for server data | Git (code and content). **Off-repo, in two places:** Blender `.blend` sources and the Android upload keystore with its password | Restore test: clone the repo on another folder and run the zone check. Open one `.blend` from the backup |
 | 12 | Docs seeded | DONE | `docs/prompts/`, `docs/PROMPT_PLAN.md`, `docs/PROGRESS.md`, `docs/audits/FINDINGS.md`, `docs/DATA_INVENTORY.md`, this file, `.github/ISSUE_TEMPLATE/bug_report.md` (PRIV-12) | — |
@@ -30,6 +30,13 @@ Set up 2026-11-11. Rigor level STANDARD. Re-check yearly, and again at M1 when t
    - Turn on 2FA for the GO54 login, if it offers it.
 5. **Spending caps:** nothing in v1.0 bills by usage. Re-check if you upgrade any plan.
 
+## Actions for you in the Sentry dashboard
+
+1. Settings → Security & Privacy: turn on **Prevent Storing of IP Addresses** and **Data Scrubber**.
+2. Settings → Legal & Compliance: accept the **Data Processing Addendum**.
+3. Your account → Security: turn on two-factor authentication.
+4. Note the event retention period shown for your plan in `docs/DATA_INVENTORY.md`.
+
 ## Renewal dates
 
 | What | Date |
@@ -39,4 +46,4 @@ Set up 2026-11-11. Rigor level STANDARD. Re-check yearly, and again at M1 when t
 
 ## Environment variables (by name only)
 
-None yet. M1 adds them, for example `VITE_SENTRY_DSN` and `VITE_UMAMI_WEBSITE_ID`, per environment.
+None. The Sentry DSN is a public identifier and lives in `src/platform/crash.ts`. Crash reporting runs in production builds only, so no per-environment value is needed.
