@@ -33,21 +33,22 @@ export interface CrashEvent {
 
 const MAX_MESSAGE = 300;
 
-/** Removes things that could identify a player from free text: emails, long tokens (save codes), URLs' queries. */
+/** Removes things that could identify a player from free text: emails, long tokens (save codes), URL queries. */
 export function scrubText(text: string): string {
   return text
     .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '[email]')
-    .replace(/([?#])[^\s"')]+/g, '$1[removed]')
+    .replace(/(https?:\/\/[^\s?#"')]+)[?#][^\s"')]*/g, '$1?[removed]')
     .replace(/[A-Za-z0-9_-]{24,}={0,2}/g, '[token]')
     .slice(0, MAX_MESSAGE);
 }
 
-/** File name without the origin or query, so paths on the player's device or their URL never appear. */
+/**
+ * Frame URL without its query or fragment. The origin is the game's own public address, kept so Sentry
+ * can match the file to its source map.
+ */
 function scrubFilename(name: string | undefined): string | undefined {
   if (!name) return undefined;
-  const noQuery = name.split(/[?#]/)[0]!;
-  const i = noQuery.lastIndexOf('/assets/');
-  return i >= 0 ? noQuery.slice(i) : noQuery.slice(noQuery.lastIndexOf('/') + 1);
+  return name.split(/[?#]/)[0];
 }
 
 function pick(src: Record<string, unknown> | undefined, keys: string[]): Record<string, unknown> | undefined {

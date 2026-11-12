@@ -2,7 +2,7 @@ import './fonts.css';
 import './style.css';
 import { loadConfig } from './platform/config';
 import { crashReportsAllowed, loadConsent } from './platform/consent';
-import { startCrashReporting } from './platform/crash';
+import { reportError, startCrashReporting } from './platform/crash';
 import { browserStore } from './platform/storage';
 import { createScene } from './render/scene';
 import { createVehicle, stepVehicle, type VehicleState } from './sim/vehicle';
@@ -90,7 +90,7 @@ async function startDiagnostics(): Promise<void> {
   window.__ona.crashReporting = on ? 'on' : 'off';
 }
 
-startDiagnostics().catch(() => {
+const diagnostics = startDiagnostics().catch(() => {
   window.__ona.crashReporting = 'off';
 });
 
@@ -100,5 +100,7 @@ boot().catch((err: unknown) => {
   card.hidden = false;
   $('errorText').textContent = "Couldn't load the map. Check your connection.";
   console.error(err);
+  // Boot errors are caught here, so global handlers never see them. Report once diagnostics have decided.
+  void diagnostics.then(() => reportError(err));
   $('retry').addEventListener('click', () => window.location.reload());
 });
