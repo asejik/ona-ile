@@ -9,4 +9,14 @@ updates:
     groups:
       actions:
         patterns: ["*"]
-  # npm is added in M1, once package.json exists.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    cooldown:
+      default-days: 7
+    groups:
+      dev-tools:
+        dependency-type: "development"
+      runtime:
+        dependency-type: "production"
