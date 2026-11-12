@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Ọ̀nà Ilé</string>
+    <string name="title_activity_main">Ọ̀nà Ilé</string>
+    <string name="package_name">com.asejik.onaile</string>
+    <string name="custom_url_scheme">com.asejik.onaile</string>
+</resources>
