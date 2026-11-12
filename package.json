@@ -15,6 +15,9 @@
     "zone": "python -I tools/build_zone.py data/osm/zone1-post-office_2026-11-07.json public/zones/zone1-post-office.json"
   },
   "dependencies": {
+    "@fontsource/baloo-2": "5.3.0",
+    "@fontsource/nunito": "5.3.0",
+    "@sentry/browser": "11.10.0",
     "three": "0.187.0"
   },
   "devDependencies": {

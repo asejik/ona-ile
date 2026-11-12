@@ -1,0 +1,11 @@
+/* Self-hosted fonts (PRIV-10): bundled with the game, nothing loads from a font CDN.
+   Three weights only. The latin-ext and vietnamese subsets carry the Yoruba letters and tone marks. */
+@import '@fontsource/baloo-2/latin-800.css';
+@import '@fontsource/baloo-2/latin-ext-800.css';
+@import '@fontsource/baloo-2/vietnamese-800.css';
+@import '@fontsource/nunito/latin-600.css';
+@import '@fontsource/nunito/latin-ext-600.css';
+@import '@fontsource/nunito/vietnamese-600.css';
+@import '@fontsource/nunito/latin-800.css';
+@import '@fontsource/nunito/latin-ext-800.css';
+@import '@fontsource/nunito/vietnamese-800.css';

@@ -9,6 +9,7 @@
   --ink: #1c1812;
   --text-secondary: #6f5f49;
   --laterite-text: #9a4f2e;
+  --danger-text: #a82a18;
   --sign-green: #0e5a36;
   --sign-white: #ffffff;
 
@@ -17,7 +18,9 @@
   --text-xs: 12px;
   --text-sm: 14px;
   --text-md: 16px;
+  --text-lg: 18px;
   --text-xl: 22px;
+  --text-2xl: 28px;
   --text-title: clamp(44px, 9vw, 68px);
 
   --space-1: 4px;
@@ -201,6 +204,10 @@ a:focus-visible {
 
 .credit a {
   color: inherit;
+  /* A 48px tall hit area around the small text (DESIGN.md --touch-min). */
+  display: inline-block;
+  padding: calc((var(--touch-min) - 1.5em) / 2) var(--space-1);
+  margin: calc((1.5em - var(--touch-min)) / 2) 0;
 }
 
 .controls {
@@ -245,4 +252,50 @@ a:focus-visible {
   .speed {
     bottom: calc(max(12px, env(safe-area-inset-bottom)) + 30px);
   }
+}
+
+/* Plain document pages (privacy notice): scrollable and selectable, unlike the game screen. */
+body.page {
+  overflow: auto;
+  touch-action: auto;
+  user-select: text;
+  -webkit-user-select: text;
+  padding: var(--space-4);
+  box-sizing: border-box;
+}
+
+.page .card {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.page h1 {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--text-2xl);
+  line-height: 1.1;
+}
+
+.page h2 {
+  margin: var(--space-5) 0 var(--space-2);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--text-lg);
+}
+
+.page .draft {
+  padding: var(--space-2) var(--space-3);
+  background: var(--paper-2);
+  border-radius: var(--radius-chip);
+  color: var(--danger-text);
+  font-weight: 800;
+}
+
+.page a {
+  color: inherit;
+}
+
+.page li {
+  margin-bottom: var(--space-1);
 }
