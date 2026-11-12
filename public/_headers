@@ -1,0 +1,24 @@
+# Cloudflare Pages response headers (M1c). Applies to the web build only; the Android app ignores this file.
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://o4512250670219264.ingest.de.sentry.io; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
+  Cross-Origin-Opener-Policy: same-origin
+
+# Hashed build files never change, so phones can keep them.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Zones change only with a release; check for a newer copy after a day.
+/zones/*
+  Cache-Control: public, max-age=86400, must-revalidate
+
+# The off switch must take effect on the next launch.
+/config.json
+  Cache-Control: no-cache, max-age=0, must-revalidate
+
+# Preview deployments (every branch) stay out of search engines.
+https://:branch.ona-ile.pages.dev/*
+  X-Robots-Tag: noindex

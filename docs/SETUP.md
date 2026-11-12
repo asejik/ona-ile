@@ -11,7 +11,7 @@ Set up 2026-11-11. Rigor level STANDARD. Re-check yearly, and again at M1 when t
 | 3 | CI | DONE (2026-11-12) | `.github/workflows/ci.yml`: gitleaks; both zone files rebuild exactly from the pinned OSM extract; `npm ci`, `npm audit --audit-level=high`, type check, lint, unit tests, build, and the Playwright browser test at phone and desktop size. About 3–5 minutes | The Actions tab shows green. A type error on a branch fails the `app` job |
 | 4 | Secret protection | DONE (no push protection) | gitleaks scans the full history in CI. `.gitleaks.toml` adds one narrow exception: the game's storage-key names (`onaile.<name>.v<n>`), which the generic API-key rule mistook for a secret. The history started on 2026-11-11, and the prototype holds no keys | Add a fake `AKIA…` key on a branch and the secrets job fails. `.env.example` arrives in M1 |
 | 5 | Dependency hygiene | DONE (2026-11-12) | `package-lock.json` committed, exact versions pinned. `.github/dependabot.yml`: GitHub Actions and npm, monthly, grouped, 7-day cooldown | Dependabot pull requests appear monthly. **Don't merge TypeScript 7 yet:** `typescript-eslint` 8 supports TypeScript below 6.1 only |
-| 6 | Environments and keys | N/A (no secrets in v1.0) | — | M1 lists the Sentry DSN and Umami website ID **by name** for each environment here |
+| 6 | Environments and keys | DONE (2026-11-12) | No secrets. Cloudflare Pages builds `main` as production and every other branch as a preview (`<branch>.ona-ile.pages.dev`, marked `noindex` in `public/_headers`). Crash reporting runs only in production builds | Open a branch's preview URL: it works and sends `X-Robots-Tag: noindex` |
 | 7 | AI tool guardrails | DONE | `CLAUDE.md`; `.claude/settings.json` denies reading `.env*`, keystores and `keystore.properties`, plus force-push, `git reset --hard`, `rm -rf` and `git clean -fdx`. Personal overrides go in `.claude/settings.local.json` (gitignored) | Ask Claude Code to show a `.env` file and it's refused. A deny rule covers only Claude's own tools, so keep production secrets off this PC |
 | 8 | Strictness | PARTIAL (2026-11-12) | `tsconfig.json`: `strict`, `noUnusedLocals`, `noUnusedParameters`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`. ESLint with typescript-eslint, and Prettier. knip (unused code) not added yet | `npm run typecheck` and `npm run lint` pass |
 | 9 | Monitoring | PARTIAL (2026-11-12) | Sentry (EU region) in `src/platform/crash.ts`: off until the player opts in, every data-collection category off, events scrubbed by `src/platform/scrub.ts`, switchable from `public/config.json`. **Still to do:** an uptime monitor once the site is live (M1c) | The browser test `tests/e2e/privacy.spec.ts` passes. A test error with opt-in appears in the Sentry project |
@@ -29,6 +29,22 @@ Set up 2026-11-11. Rigor level STANDARD. Re-check yearly, and again at M1 when t
    - **Expires 2027-09-18.** In the GO54 client area, open the domain and turn **auto-renew** on, with a valid card or enough account credit. Otherwise, set a reminder for August 2027.
    - Turn on 2FA for the GO54 login, if it offers it.
 5. **Spending caps:** nothing in v1.0 bills by usage. Re-check if you upgrade any plan.
+
+## Cloudflare Pages (M1c)
+
+**Settings** (enter them when creating the project):
+
+| Setting | Value |
+|---|---|
+| Project name | `ona-ile` (gives `ona-ile.pages.dev`) |
+| Production branch | `main` |
+| Build command | `npm run build` |
+| Build output directory | `dist` |
+| Environment variable | `NODE_VERSION` = `24` |
+| Web Analytics | **Off** (it would add a tracker the privacy plan doesn't allow) |
+| Custom domain | `ona-ile.asejik.com` (CNAME to `ona-ile.pages.dev` at the DNS host, WhoGoHost/GO54) |
+
+**What `public/_headers` sets:** a strict Content-Security-Policy (only the game's own files plus the Sentry EU endpoint), `nosniff`, `no-referrer`, a Permissions-Policy that blocks camera, microphone and location, and caching (build files for a year, zones for a day, `config.json` never cached).
 
 ## Sentry dashboard settings
 
