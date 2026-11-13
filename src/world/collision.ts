@@ -1,3 +1,4 @@
+import { circlePolygon, roundaboutIslands } from './props';
 import { clamp } from './roads';
 import type { Zone } from './zone';
 
@@ -23,25 +24,17 @@ export interface CollisionResult {
 const CELL = 16;
 const key = (gx: number, gy: number) => (gx + 4096) * 8192 + (gy + 4096);
 
-/** Static obstacles: building footprints and roundabout islands. Circles collide against them. */
+/** Static obstacles: building footprints, roundabout islands and any extra props (kiosks). */
 export class Obstacles {
   readonly list: Obstacle[] = [];
   private readonly grid = new Map<number, number[]>();
   private readonly seen: Uint32Array;
   private stamp = 1;
 
-  constructor(zone: Zone) {
+  constructor(zone: Zone, extra: number[][] = []) {
     for (const b of zone.buildings) this.add(b.slice(1));
-    for (const r of zone.roundabouts) {
-      if (r.r < 8 || r.r > 26) continue;
-      const island = Math.max(2.4, r.r - 6.3);
-      const pts: number[] = [];
-      for (let i = 0; i < 14; i++) {
-        const a = (i / 14) * Math.PI * 2;
-        pts.push(r.x + Math.cos(a) * island, r.y + Math.sin(a) * island);
-      }
-      this.add(pts);
-    }
+    for (const p of extra) this.add(p);
+    for (const r of roundaboutIslands(zone)) this.add(circlePolygon(r.x, r.y, r.island));
     this.list.forEach((o, i) => {
       for (let gx = Math.floor(o.minx / CELL); gx <= Math.floor(o.maxx / CELL); gx++) {
         for (let gy = Math.floor(o.miny / CELL); gy <= Math.floor(o.maxy / CELL); gy++) {
