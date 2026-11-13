@@ -8,3 +8,8 @@
 # Generated or downloaded data: hide from diffs
 data/osm/*.json -diff linguist-generated
 baba-keke/zone1.js -diff linguist-generated
+# Windows batch files need CRLF; the Unix Gradle wrapper needs LF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+gradlew text eol=lf
+*.jar binary

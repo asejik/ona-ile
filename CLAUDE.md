@@ -17,7 +17,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Unit tests: `npm test` (Vitest). One file: `npx vitest run tests/unit/vehicle.test.ts`
 - Browser tests: `npm run build && npm run test:e2e` (phone and desktop; WebGL is software-rendered, so they're slow)
 - Zone build: `npm run zone` (writes `public/zones/zone1-post-office.json`; CI fails if it drifts)
-- Android: `npx cap sync android && npx cap run android` (JAVA_HOME = Android Studio's bundled JDK 21; SDK at `D:\Android`)
+- Android debug APK: `npm run android:build` → `android/app/build/outputs/apk/debug/app-debug.apk`. Needs **Java 21** (Gradle 8.14 can't run on 25; the script finds an installed JDK 21) and the **Android 36** SDK platform (SDK at `D:\Android`). App ID `com.asejik.onaile`
+- Inside the app, `config.json` is read from https://ona-ile.asejik.com (see `src/platform/native.ts`), so the remote off switch reaches installed apps
 
 **Prototype v0.1 (`baba-keke/`, reference only, to be ported in M2):**
 - Serve it with `python -m http.server 8765 --bind 127.0.0.1 --directory baba-keke`.
