@@ -27,6 +27,19 @@
       </div>
 
       <div id="hud" hidden>
+        <div class="mapwrap">
+          <canvas
+            id="minimap"
+            width="300"
+            height="300"
+            aria-label="Map around you, turning with your keke"
+          ></canvas>
+          <div id="north" class="north" aria-hidden="true">N</div>
+        </div>
+        <div id="warden" class="chip warden" hidden>
+          <span id="wardenName"></span>
+          <span id="wardenSig" class="signal"></span>
+        </div>
         <div id="street" class="sign" hidden></div>
         <div class="chip speed"><span id="speed">0</span> <small>km/h</small></div>
         <div class="controls" aria-label="Driving controls">
@@ -35,6 +48,7 @@
             <button class="ctl" data-ctl="right" aria-label="Steer right">▶</button>
           </div>
           <div class="cluster">
+            <button class="ctl horn" data-act="horn" aria-label="Horn">Horn</button>
             <button class="ctl" data-ctl="brake" aria-label="Brake and reverse">Brake</button>
             <button class="ctl" data-ctl="gas" aria-label="Accelerate">Gas</button>
           </div>
