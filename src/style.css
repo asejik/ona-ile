@@ -43,6 +43,12 @@
   --stop: #b83220;
   --map-ground: #c79466;
   --minimap: 112px;
+  --gold-text: #8a6508;
+  --success-text: #1f6b45;
+  --green-deep: #124a2f;
+  --outline-soft: inset 0 0 0 2px rgba(28, 24, 18, 0.35);
+  --dur-base: 250ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 [hidden] {
@@ -389,5 +395,385 @@ body.page {
 @media (min-width: 701px) {
   :root {
     --minimap: 150px;
+  }
+}
+
+/* ---------- M2b: ride loop UI ---------- */
+
+/* Today's page (HUD-1): paper, ruled, ink outline, top left. */
+.tracker {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  left: max(16px, env(safe-area-inset-left));
+  box-sizing: border-box;
+  width: min(230px, calc(100vw - var(--minimap) - 48px));
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  background: var(--paper);
+  background-image: repeating-linear-gradient(transparent 0 21px, rgba(181, 100, 63, 0.1) 21px 22px);
+  border-radius: var(--radius-button);
+  box-shadow: var(--outline), var(--shadow-panel);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}
+
+.tracker .eyebrow {
+  margin: 0 0 var(--space-1);
+}
+
+.todo {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.todo li {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  font-weight: 700;
+}
+
+.todo li:first-child {
+  font-size: var(--text-sm);
+  font-weight: 800;
+}
+
+.todo .box {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  margin-top: 2px;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+}
+
+.todo li.done .text {
+  text-decoration: line-through;
+  color: var(--text-secondary);
+}
+
+.todo li.done .box {
+  background:
+    linear-gradient(45deg, transparent 45%, var(--ink) 45% 60%, transparent 60%),
+    linear-gradient(-45deg, transparent 45%, var(--ink) 45% 60%, transparent 60%);
+}
+
+.todo li.urgent .text {
+  color: var(--danger-text);
+}
+
+.comfort {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+  font-weight: 700;
+}
+
+.comfort .bar {
+  flex: 1;
+  height: 6px;
+  border-radius: 99px;
+  background: var(--paper-2);
+  box-shadow: inset 0 0 0 1px rgba(28, 24, 18, 0.35);
+  overflow: hidden;
+}
+
+.comfort .bar i {
+  display: block;
+  height: 100%;
+  background: var(--ink);
+  transform-origin: left;
+  transition: transform var(--dur-base) var(--ease-out);
+}
+
+.respect {
+  margin: var(--space-1) 0 0;
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+/* Pause: a 48px paper circle on the minimap's lower-left edge (A-11). */
+.pause-btn {
+  position: absolute;
+  top: calc(max(10px, env(safe-area-inset-top)) + var(--minimap) - 40px);
+  right: calc(max(16px, env(safe-area-inset-right)) + var(--minimap) - 40px);
+  width: var(--touch-min);
+  height: var(--touch-min);
+  border: 0;
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: var(--outline), var(--shadow-panel);
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+  /* Above the minimap, sitting on its lower-left edge. */
+  z-index: 2;
+}
+
+.pause-btn svg {
+  width: 22px;
+  height: 22px;
+  fill: var(--ink);
+}
+
+/* Toasts sit in the middle band, never more than two. */
+.toasts {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 36%;
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+}
+
+.toast {
+  box-sizing: border-box;
+  max-width: min(460px, 100%);
+  padding: var(--space-2) var(--space-3);
+  background: var(--paper);
+  border-radius: var(--radius-button);
+  box-shadow: var(--outline), var(--shadow-panel);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+  animation: pop var(--dur-base) var(--ease-out);
+}
+
+.toast.good {
+  box-shadow:
+    inset 4px 0 0 var(--success-text),
+    var(--outline),
+    var(--shadow-panel);
+}
+
+.toast.bad {
+  box-shadow:
+    inset 4px 0 0 var(--danger-text),
+    var(--outline),
+    var(--shadow-panel);
+}
+
+@keyframes pop {
+  from {
+    transform: translateY(8px) scale(0.96);
+    opacity: 0.2;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.context-btn {
+  position: absolute;
+  left: 50%;
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 120px);
+  transform: translateX(-50%);
+  border-radius: 99px;
+  pointer-events: auto;
+}
+
+.context-btn:active {
+  transform: translateX(-50%) translateY(2px);
+}
+
+/* Cards: dialogue at the bottom on phones, title and pause centred. */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
+
+.title-overlay {
+  align-items: center;
+  background: linear-gradient(180deg, rgba(230, 207, 168, 0.25), rgba(230, 207, 168, 0.85) 55%);
+}
+
+.card {
+  background-image: repeating-linear-gradient(transparent 0 27px, rgba(181, 100, 63, 0.1) 27px 28px);
+}
+
+.subtitle {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--text-lg);
+}
+
+.card-title {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--text-xl);
+  line-height: 1.15;
+}
+
+.who {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+
+.face {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--sign-white);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--text-xl);
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.18);
+}
+
+.nm {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--text-xl);
+  line-height: 1;
+}
+
+.rl {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.say {
+  max-width: 65ch;
+  font-weight: 600;
+}
+
+.stars {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.stars svg {
+  width: 24px;
+  height: 24px;
+  fill: var(--gold-text);
+}
+
+.stars svg.off {
+  fill: var(--paper-2);
+  stroke: var(--text-secondary);
+}
+
+.stars-text {
+  margin-left: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.rows {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: inherit;
+}
+
+.rows td {
+  padding: var(--space-1) 0;
+  border-bottom: 1px dashed rgba(28, 24, 18, 0.2);
+}
+
+.rows td:last-child {
+  text-align: right;
+  font-weight: 800;
+}
+
+.rows tr.total td {
+  border-bottom: 0;
+  font-size: var(--text-md);
+}
+
+.note {
+  font-weight: 800;
+}
+
+.btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.btn.cta {
+  background: var(--green);
+  color: var(--paper);
+  box-shadow: 0 3px 0 var(--green-deep);
+}
+
+.btn.outline {
+  background: transparent;
+  box-shadow: var(--outline-soft);
+}
+
+.keys {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.keys kbd {
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: var(--text-xs);
+  background: var(--paper-2);
+  border-radius: var(--radius-chip);
+  padding: 1px 6px;
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.12);
+}
+
+/* The fine print sits clear of the buttons above it. */
+.fine {
+  margin-top: var(--space-4);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.fine a {
+  color: inherit;
+}
+
+.flash {
+  position: absolute;
+  inset: 0;
+  background: var(--paper);
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (pointer: coarse) {
+  .keys {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast {
+    animation: none;
+  }
+  .comfort .bar i {
+    transition: none;
   }
 }

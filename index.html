@@ -27,6 +27,12 @@
       </div>
 
       <div id="hud" hidden>
+        <section id="tracker" class="tracker" aria-label="Today's page" aria-live="polite"></section>
+        <button id="pauseBtn" class="pause-btn" aria-label="Pause">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" /></svg>
+        </button>
+        <div id="toasts" class="toasts" aria-live="polite"></div>
+        <button id="photoBtn" class="btn context-btn" hidden>Take a photo for Baba</button>
         <div class="mapwrap">
           <canvas
             id="minimap"
@@ -60,6 +66,49 @@
           >
           · <a href="./privacy.html">Privacy</a>
         </p>
+      </div>
+      <div id="dialog" class="overlay" hidden></div>
+      <div id="flash" class="flash" aria-hidden="true"></div>
+
+      <div id="title" class="overlay title-overlay" hidden>
+        <div class="card" role="dialog" aria-labelledby="titleName">
+          <p class="eyebrow">Prologue · Post Office and Unity Road, Ilorin</p>
+          <h1 id="titleName" class="title">Ọ̀nà Ilé</h1>
+          <p class="subtitle">The Last Delivery</p>
+          <p>
+            Drive Baba's old keke around the real streets of Ilorin. Pick up passengers, respect the traffic
+            wardens, find the places in Baba's notebook, and earn ₦5,000 for Mama's pharmacy bill.
+          </p>
+          <div class="btns">
+            <button id="startBtn" class="btn cta">Start driving</button>
+            <button id="newBtn" class="btn outline" hidden>New game</button>
+          </div>
+          <p class="keys">
+            <kbd>W</kbd>/<kbd>↑</kbd> gas · <kbd>S</kbd>/<kbd>↓</kbd> brake and reverse · <kbd>A</kbd
+            ><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> steer · <kbd>H</kbd> horn · <kbd>P</kbd> photo ·
+            <kbd>Esc</kbd> pause
+          </p>
+          <p class="fine">
+            Map data ©
+            <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener"
+              >OpenStreetMap contributors</a
+            >
+            · <a href="./privacy.html">Privacy</a>
+          </p>
+        </div>
+      </div>
+
+      <div id="pause" class="overlay title-overlay" hidden>
+        <div class="card" role="dialog" aria-labelledby="pauseName">
+          <p class="eyebrow">Paused</p>
+          <h2 id="pauseName" class="card-title">Prologue · Post Office and Unity Road</h2>
+          <p id="pauseSummary"></p>
+          <div class="btns">
+            <button id="resumeBtn" class="btn">Resume</button>
+            <button id="soundBtn" class="btn outline">Sound: on</button>
+            <button id="restartBtn" class="btn outline">Restart prologue</button>
+          </div>
+        </div>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>

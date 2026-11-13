@@ -1,7 +1,7 @@
 /**
  * Traffic wardens at roundabouts (CORE-2), ported from prototype v0.1. Pure logic.
- * Each warden runs a 15 s cycle: 9 s GO, then 6 s STOP. Fines and praise need money and
- * Respect, which arrive with the ride loop in M2b.
+ * Each warden runs a 15 s cycle: 9 s GO, then 6 s STOP. Running a STOP costs ₦200 and 6 Respect;
+ * waiting for it earns 2 Respect; honking at a warden costs 1.
  */
 
 export const CYCLE_S = 15;
@@ -25,6 +25,15 @@ export interface Warden {
   /** Seconds into the cycle. */
   t: number;
   phase: Phase;
+  /** Rule memory for the current signal. */
+  fined: boolean;
+  praised: boolean;
+  /** Seconds the player has waited at this STOP. */
+  waited: number;
+  /** The player was already on the roundabout when STOP began, so isn't fined for finishing it. */
+  insideAtStop: boolean;
+  /** Seconds until this warden reacts to the horn again. */
+  honkCooldown: number;
 }
 
 export const WARDEN_CAST: { name: string; lines: WardenLines }[] = [
@@ -66,7 +75,20 @@ export function createWardens(islands: { x: number; y: number; r: number }[]): W
     .map((r, i) => {
       const cast = WARDEN_CAST[i]!;
       const t = i * 4.3;
-      return { name: cast.name, lines: cast.lines, x: r.x, y: r.y, r: r.r, t, phase: phaseAt(t) };
+      return {
+        name: cast.name,
+        lines: cast.lines,
+        x: r.x,
+        y: r.y,
+        r: r.r,
+        t,
+        phase: phaseAt(t),
+        fined: false,
+        praised: false,
+        waited: 0,
+        insideAtStop: false,
+        honkCooldown: 0,
+      };
     });
 }
 
@@ -105,4 +127,61 @@ export function nearestWarden(
     }
   }
   return best ? { warden: best, dist } : null;
+}
+
+export const FINE = 200;
+export const FINE_RESPECT = -6;
+export const PRAISE_RESPECT = 2;
+export const HONK_RESPECT = -1;
+
+export type WardenEvent =
+  { kind: 'fine'; warden: Warden } | { kind: 'praise'; warden: Warden } | { kind: 'honk'; warden: Warden };
+
+/**
+ * Applies the warden rules for one step. Call after stepWardens with the wardens that changed signal.
+ * Returns what happened; the caller applies money and Respect and shows the lines.
+ */
+export function wardenRules(
+  wardens: Warden[],
+  changed: Warden[],
+  player: { x: number; y: number },
+  speed: number,
+  dt: number,
+): WardenEvent[] {
+  const events: WardenEvent[] = [];
+  for (const w of changed) {
+    w.fined = false;
+    w.praised = false;
+    w.waited = 0;
+    w.insideAtStop = Math.hypot(player.x - w.x, player.y - w.y) < w.r + 5;
+  }
+  for (const w of wardens) {
+    w.honkCooldown = Math.max(0, w.honkCooldown - dt);
+    if (w.phase !== 'stop') continue;
+    const d = Math.hypot(player.x - w.x, player.y - w.y);
+    if (!w.insideAtStop && !w.fined && d < w.r + 2.5 && speed > 2.5) {
+      w.fined = true;
+      events.push({ kind: 'fine', warden: w });
+    }
+    if (d > w.r + 2.5 && d < w.r + 22 && speed < 0.8) {
+      w.waited += dt;
+      if (w.waited > 1.3 && !w.praised && !w.fined) {
+        w.praised = true;
+        events.push({ kind: 'praise', warden: w });
+      }
+    }
+  }
+  return events;
+}
+
+/** Honking near a warden annoys them, once every 8 s. */
+export function honkAtWardens(wardens: Warden[], player: { x: number; y: number }): WardenEvent[] {
+  const events: WardenEvent[] = [];
+  for (const w of wardens) {
+    if (w.honkCooldown <= 0 && Math.hypot(player.x - w.x, player.y - w.y) < 32) {
+      w.honkCooldown = 8;
+      events.push({ kind: 'honk', warden: w });
+    }
+  }
+  return events;
 }
