@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { startGame } from './play';
 
 // window.__ona is typed by src/main.ts.
 
@@ -9,8 +10,7 @@ test('the map loads and the keke drives', async ({ page, isMobile }) => {
     if (m.type() === 'error') errors.push(m.text());
   });
 
-  await page.goto('/');
-  await page.waitForFunction(() => window.__ona?.ready === true, undefined, { timeout: 30_000 });
+  await startGame(page);
   await expect(page.locator('#hud')).toBeVisible();
   await expect(page.locator('.credit')).toContainText('OpenStreetMap contributors');
 

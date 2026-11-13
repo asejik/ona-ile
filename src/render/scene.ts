@@ -42,6 +42,9 @@ export interface GameScene {
   bump(impact: number): void;
   /** Draw calls and triangles in the last frame (for the performance budget). */
   readonly stats: { calls: number; triangles: number };
+  /** For adding ride and notebook markers. */
+  readonly three: THREE.Scene;
+  readonly keke: THREE.Group;
 }
 
 const angDiff = (from: number, to: number) => {
@@ -136,6 +139,8 @@ export function createScene(
 
   const api: GameScene = {
     stats: { calls: 0, triangles: 0 },
+    three: scene,
+    keke,
     resize() {
       const w = canvas.clientWidth || window.innerWidth;
       const h = canvas.clientHeight || window.innerHeight;

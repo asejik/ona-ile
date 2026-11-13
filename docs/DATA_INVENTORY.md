@@ -64,7 +64,7 @@ Last reviewed: 2026-11-07
 
 | Name / script | Set by (first or third party) | Purpose | Necessary? (security, network stability, accessibility only) | Loads before consent? (must be NO if not necessary) | Lifetime |
 |---|---|---|---|---|---|
-| Save (IndexedDB `ona-ile` / Capacitor Preferences) | First party | Game progress, the service the player asked for | Yes (strictly needed for the game) | Yes (allowed) | Until deleted or uninstalled |
+| Save (`localStorage['onaile.save.v2']`, in browsers and the app's WebView; may move to IndexedDB or Capacitor Preferences later) | First party | Game progress, the service the player asked for | Yes (strictly needed for the game) | Yes (allowed) | Until deleted or uninstalled |
 | Settings, including the consent record | First party | Preferences and the diagnostics choice | Yes | Yes (allowed) | Same |
 | `config.json` cache | First party | Kill switches when offline | Yes | Yes (allowed) | Replaced each launch |
 | Umami script | Third party | Analytics | **No** | **No:** not even downloaded before opt-in | Sets no cookies |
@@ -109,3 +109,4 @@ Last reviewed: 2026-11-07
 2. **[DPO]** Is v1.0 of major importance (OHL) only because of in-transit and edge-log IPs? Engage a DPO before M6. You need one anyway for the Art. 31 DPIA.
 3. **[DPO]** The transfer basis for Cloudflare edge logs (necessity versus consent).
 4. **[VERIFY at M1]** Umami Cloud region, DPA and retention; Sentry free-plan retention and the IP-storage setting; Cloudflare log retention and DPA acceptance.
+| 2026-11-13 | Game save built (M2b): progress only (money, Respect, notebook pages, ride count, story flags), stored on the device under `onaile.save.v2`; prototype key `babaKeke.v1` migrated then removed. No personal data | M2b, `src/platform/save.ts` | No |

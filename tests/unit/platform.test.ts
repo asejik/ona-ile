@@ -13,7 +13,12 @@ import type { KeyValueStore } from '../../src/platform/storage';
 
 function memoryStore(): KeyValueStore & { data: Map<string, string> } {
   const data = new Map<string, string>();
-  return { data, getItem: (k) => data.get(k) ?? null, setItem: (k, v) => void data.set(k, v) };
+  return {
+    data,
+    getItem: (k) => data.get(k) ?? null,
+    setItem: (k, v) => void data.set(k, v),
+    removeItem: (k) => void data.delete(k),
+  };
 }
 const ON: RemoteConfig = { crashReports: true, analytics: true, minVersion: '' };
 const ok = (body: unknown) => () => Promise.resolve(new Response(JSON.stringify(body)));
