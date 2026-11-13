@@ -85,3 +85,13 @@ test('the privacy page runs under the content security policy', async ({ page })
   await page.evaluate(() => document.fonts.ready);
   expect(violations).toEqual([]);
 });
+
+test('the Android app (origin https://localhost) may read config.json, and nothing else may', async ({
+  page,
+}) => {
+  const file = await (await page.request.get('/_headers')).text();
+  const block = file.split(/\n(?=\S)/).find((b) => b.startsWith('/config.json')) ?? '';
+  expect(block).toContain('Access-Control-Allow-Origin: https://localhost');
+  // The only cross-origin grant in the file is for config.json.
+  expect(file.match(/Access-Control-Allow-Origin/g)).toHaveLength(1);
+});
