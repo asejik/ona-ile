@@ -18,6 +18,8 @@ export interface Edge {
   len: number;
   /** False when this direction breaks a one-way rule. */
   ok: boolean;
+  /** Width of the road this edge belongs to, in metres. */
+  w: number;
 }
 
 export interface RoadHit {
@@ -35,6 +37,8 @@ const key = (gx: number, gy: number) => (gx + 4096) * 8192 + (gy + 4096);
 export class RoadNetwork {
   readonly segments: Segment[] = [];
   readonly adjacency: Edge[][];
+  /** Widest road meeting at each node, in metres (0 for nodes not on a road). */
+  readonly nodeWidth: Float32Array;
   /** Nodes in the largest connected piece of the network (used for routing). */
   readonly mainNodes: number[];
   private readonly grid = new Map<number, number[]>();
@@ -42,6 +46,7 @@ export class RoadNetwork {
   constructor(private readonly zone: Zone) {
     const nodes = zone.nodes;
     this.adjacency = nodes.map(() => []);
+    this.nodeWidth = new Float32Array(nodes.length);
     zone.roads.forEach((road, roadIndex) => {
       const oneWay = road.ow === 1 || road.rb === 1;
       for (let i = 0; i < road.p.length - 1; i++) {
@@ -52,8 +57,10 @@ export class RoadNetwork {
         const [bx, by] = nodes[b]!;
         const len = Math.hypot(bx - ax, by - ay);
         if (len < 0.05) continue;
-        this.adjacency[a]!.push({ to: b, len, ok: true });
-        this.adjacency[b]!.push({ to: a, len, ok: !oneWay });
+        this.adjacency[a]!.push({ to: b, len, ok: true, w: road.w });
+        this.adjacency[b]!.push({ to: a, len, ok: !oneWay, w: road.w });
+        this.nodeWidth[a] = Math.max(this.nodeWidth[a]!, road.w);
+        this.nodeWidth[b] = Math.max(this.nodeWidth[b]!, road.w);
         this.segments.push({ a, b, ax, ay, bx, by, hw: road.w / 2, road: roadIndex });
       }
     });
