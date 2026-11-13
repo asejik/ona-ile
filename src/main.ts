@@ -217,7 +217,9 @@ async function boot(): Promise<void> {
   let time = 0;
 
   const frame = (now: number) => {
-    const dt = Math.min(0.05, (now - last) / 1000);
+    // The simulation step is capped so a slow frame can't tunnel through walls; the HUD uses real time.
+    const realDt = (now - last) / 1000;
+    const dt = Math.min(0.05, realDt);
     last = now;
     time += dt;
     if (!paused()) {
@@ -242,7 +244,7 @@ async function boot(): Promise<void> {
     markers.update(player, time);
     scene.render(player, dt);
     minimap.draw(player, wardens, dt);
-    hudTimer -= dt;
+    hudTimer -= realDt;
     if (hudTimer <= 0) {
       hudTimer = 0.2;
       speedEl.textContent = `${Math.round(Math.abs(player.v) * 3.6)}`;
