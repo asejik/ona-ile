@@ -16,6 +16,8 @@ export interface Sound {
   horn(): void;
   whistle(volume?: number): void;
   thud(): void;
+  coin(): void;
+  shutter(): void;
   muted: boolean;
 }
 
@@ -112,6 +114,14 @@ export function createSound(): Sound {
     thud() {
       tone(90, 0.15, 'sine', 0.12);
       tone(60, 0.2, 'triangle', 0.08);
+    },
+    coin() {
+      tone(988, 0.12, 'triangle', 0.09);
+      tone(1319, 0.25, 'triangle', 0.08, 0.09);
+    },
+    shutter() {
+      tone(3200, 0.04, 'square', 0.05);
+      tone(2400, 0.05, 'square', 0.04, 0.06);
     },
   };
   return sound;

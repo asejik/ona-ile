@@ -2,6 +2,7 @@
 export interface KeyValueStore {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
+  removeItem(key: string): void;
 }
 
 /** localStorage when it works, otherwise an in-memory store (private mode, blocked storage). */
@@ -13,7 +14,11 @@ export function browserStore(): KeyValueStore {
     return s;
   } catch {
     const mem = new Map<string, string>();
-    return { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => void mem.set(k, v) };
+    return {
+      getItem: (k) => mem.get(k) ?? null,
+      setItem: (k, v) => void mem.set(k, v),
+      removeItem: (k) => void mem.delete(k),
+    };
   }
 }
 

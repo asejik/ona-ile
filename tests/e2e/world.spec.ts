@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
+import { startGame } from './play';
 
 // Checks that the prototype's world is present (M2a), and that it stays within the PRD budgets.
 test('the world has traffic, wardens, a minimap and stays within budget', async ({ page, isMobile }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('/');
-  await page.waitForFunction(() => window.__ona?.ready === true, undefined, { timeout: 60_000 });
+  await startGame(page);
   await expect.poll(() => page.evaluate(() => window.__ona.wardens?.length ?? 0)).toBe(3);
 
   const s = await page.evaluate(() => ({ stats: window.__ona.stats!, traffic: window.__ona.traffic! }));
@@ -32,8 +32,7 @@ test('the world has traffic, wardens, a minimap and stays within budget', async 
 
 test('the horn button is there on phones', async ({ page, isMobile }) => {
   test.skip(!isMobile, 'buttons are touch-only');
-  await page.goto('/');
-  await page.waitForFunction(() => window.__ona?.ready === true, undefined, { timeout: 60_000 });
+  await startGame(page);
   const box = (await page.locator('[data-act="horn"]').boundingBox())!;
   expect(box.width).toBeGreaterThanOrEqual(48);
 });
