@@ -10,7 +10,14 @@ import type { DriveInput } from '../sim/vehicle';
 export const SWIPE_RADIUS = 40;
 /** Below this share of the radius nothing happens, so a resting thumb doesn't creep. */
 export const DEAD_ZONE = 0.15;
-export const STEER_GAIN: Record<SteerLevel, number> = { low: 0.7, normal: 1, high: 1.4 };
+/**
+ * Steering ignores this much sideways share, so a thumb drifting off straight up doesn't turn the keke.
+ * Above it steering rises on a curve (STEER_CURVE): small drifts steer a little, full lock needs a
+ * deliberate drag sideways. Tuned after the first phone test, where linear steering felt far too sharp.
+ */
+export const STEER_DEAD_BAND = 0.2;
+export const STEER_CURVE = 2;
+export const STEER_GAIN: Record<SteerLevel, number> = { low: 0.7, normal: 1, high: 1.3 };
 
 /** Turns a drag (screen pixels, y down) into pedals and steering. Pure, so it is unit-tested. */
 export function swipeDrive(dx: number, dy: number, gain = 1, radius = SWIPE_RADIUS): DriveInput {
@@ -19,7 +26,9 @@ export function swipeDrive(dx: number, dy: number, gain = 1, radius = SWIPE_RADI
   if (reach < DEAD_ZONE) return { gas: 0, brake: 0, left: 0, right: 0 };
   const strength = (reach - DEAD_ZONE) / (1 - DEAD_ZONE);
   const pedal = (strength * -dy) / len;
-  const steer = Math.max(-1, Math.min(1, ((strength * dx) / len) * gain));
+  const side = (strength * Math.abs(dx)) / len;
+  const shaped = Math.max(0, (side - STEER_DEAD_BAND) / (1 - STEER_DEAD_BAND)) ** STEER_CURVE;
+  const steer = Math.sign(dx) * Math.min(1, shaped * gain);
   return {
     gas: Math.max(0, pedal),
     brake: Math.max(0, -pedal),
