@@ -2,7 +2,11 @@
 Build a compact, game-ready zone file from an OpenStreetMap JSON export.
 
 Usage:
-    python build_zone.py <osm map.json> <output zone.json | zone.js>
+    python build_zone.py <osm map.json> <output zone.json | zone.js> [overrides.json]
+
+The optional overrides file holds hand-checked fixes (road names, area names); see
+content/zones/<id>.overrides.json. Junctions, name plates and signposts (NAV-2, NAV-3) are
+computed only when an overrides file is given.
 
 The OSM export can be downloaded with:
     https://api.openstreetmap.org/api/0.6/map.json?bbox=LEFT,BOTTOM,RIGHT,TOP
@@ -14,6 +18,7 @@ import json
 import math
 import random
 import sys
+from collections import defaultdict
 
 # ---- Zone settings (Prologue / Stage 1: Post Office + Unity Road) ----------
 BBOX = (4.550, 8.476, 4.572, 8.494)  # left, bottom, right, top (lon/lat)
@@ -64,7 +69,151 @@ NOTEBOOK = [
 ]
 
 
-def main(src, dst):
+# ---- Junctions and signposts (NAV-2, NAV-3) --------------------------------
+# A signpost blade names the first place a road leads to: follow the road from the junction (same
+# name first, else the straightest way on) for up to WALK_MAX game metres and take the first named
+# place, area or roundabout passed.
+WALK_MAX = 800.0
+TURN_MAX = math.radians(70)  # a bend sharper than this ends the walk (the road has ended at a T)
+NEAR_PLACE = 45.0  # passing within this of a place counts as reaching it
+NEAR_AREA = 90.0
+NOT_HERE = 60.0  # a place this close to the junction is where you already are, not where it leads
+CLUSTER = 25.0  # junction points closer than this are one junction
+CLEAR = 30.0  # an exit's direction is measured where the road is this far from the junction centre
+MERGE_DEG = 35  # exits closer in direction than this are the same way out
+
+
+def build_junctions(out_nodes, roads, roundabouts, targets):
+    adj = defaultdict(list)
+    for ri, r in enumerate(roads):
+        for a, b in zip(r["p"], r["p"][1:]):
+            if a != b:
+                adj[a].append((b, ri))
+                adj[b].append((a, ri))
+    ring = {i for r in roads if r.get("rb") for i in r["p"]}
+
+    def dist(a, b):
+        return math.hypot(a[0] - b[0], a[1] - b[1])
+
+    def rb_of(i):
+        return min(range(len(roundabouts)), key=lambda k: dist(out_nodes[i], (roundabouts[k]["x"], roundabouts[k]["y"])))
+
+    ring_rb = {i: rb_of(i) for i in ring} if roundabouts else {}
+
+    def head(a, b):
+        return math.atan2(b[1] - a[1], b[0] - a[0])
+
+    def turn(h1, h2):
+        return abs((h2 - h1 + math.pi) % (2 * math.pi) - math.pi)
+
+    def walk(centre, members, start, nxt, ri, home_rb):
+        """Follows the road out of a junction. Returns (heading out, place it leads to, distance)."""
+        name = roads[ri]["n"]
+        prev, cur, d, seen = start, nxt, dist(out_nodes[start], centre), set(members)
+        out_h = None
+        while True:
+            p = out_nodes[cur]
+            d += dist(p, out_nodes[prev])
+            if out_h is None and dist(p, centre) >= CLEAR:
+                out_h = head(centre, p)
+            if d > WALK_MAX:
+                break
+            if cur in ring_rb and ring_rb[cur] != home_rb:
+                # An unnamed roundabout says nothing on a sign; name it in the overrides file.
+                rb = roundabouts[ring_rb[cur]]
+                rb_name = rb["name"]
+                if rb_name != "Roundabout" and dist(centre, (rb["x"], rb["y"])) > NOT_HERE:
+                    return out_h if out_h is not None else head(centre, p), rb_name, d
+                break
+            for t in targets:
+                if dist(p, (t["x"], t["y"])) < t["r"] and dist(centre, (t["x"], t["y"])) > NOT_HERE:
+                    return out_h if out_h is not None else head(centre, p), t["name"], d
+            seen.add(cur)
+            h = head(out_nodes[prev], p)
+            options = [(nb, r2) for nb, r2 in adj[cur] if nb not in seen]
+            if not options:
+                break
+            same = [o for o in options if name and roads[o[1]]["n"] == name]
+            nb, r2 = min(same or options, key=lambda o: turn(h, head(p, out_nodes[o[0]])))
+            if turn(h, head(p, out_nodes[nb])) > TURN_MAX:
+                break
+            prev, cur = cur, nb
+            if roads[r2]["n"]:
+                name = roads[r2]["n"]
+        if out_h is None:
+            out_h = head(centre, out_nodes[cur])
+        return out_h, "", 0
+
+    def exits_of(centre, members, home_rb):
+        raw = []
+        for i in sorted(members):
+            for nb, ri in adj[i]:
+                if nb in members or (home_rb >= 0 and nb in ring):
+                    continue
+                h, to, d = walk(centre, members, i, nb, ri, home_rb)
+                raw.append({"h": round(math.degrees(h)) % 360, "road": roads[ri]["n"], "to": to, "d": round(d)})
+        # One exit per direction: the two carriageways of a divided road, and links that lead back out
+        # through a neighbouring part of the same junction, collapse into one.
+        merged = []
+        for e in sorted(raw, key=lambda e: (e["to"] == "", e["road"] == "", e["d"])):
+            def apart(m):
+                return abs((e["h"] - m["h"] + 180) % 360 - 180)
+
+            if any(apart(m) < MERGE_DEG or (e["to"] and m["to"] == e["to"] and m["road"] == e["road"] and apart(m) < 60)
+                   for m in merged):
+                continue
+            merged.append(e)
+        out = []
+        for e in sorted(merged, key=lambda e: e["h"]):
+            x = {"h": e["h"], "road": e["road"]}
+            if e["to"]:
+                x["to"], x["d"] = e["to"], e["d"]
+            out.append(x)
+        return out
+
+    # Ordinary junctions: three or more ways meet. Points closer than CLUSTER are one junction
+    # (divided roads draw each carriageway, so one real crossing is several points).
+    points = [i for i in sorted(adj) if i not in ring and len({nb for nb, _ in adj[i]}) >= 3]
+    parent = {i: i for i in points}
+
+    def root(i):
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    for a_i, a in enumerate(points):
+        for b in points[a_i + 1:]:
+            if dist(out_nodes[a], out_nodes[b]) < CLUSTER:
+                parent[root(a)] = root(b)
+    groups = defaultdict(list)
+    for i in points:
+        groups[root(i)].append(i)
+
+    junctions = []
+    for members in sorted(groups.values(), key=lambda g: min(g)):
+        plates = sorted({roads[ri]["n"] for i in members for _, ri in adj[i] if roads[ri]["n"]})
+        if not plates:
+            continue
+        cx = sum(out_nodes[i][0] for i in members) / len(members)
+        cy = sum(out_nodes[i][1] for i in members) / len(members)
+        exits = exits_of((cx, cy), set(members), -1)
+        if len(exits) < 3:
+            continue
+        junctions.append({"x": round(cx, 1), "y": round(cy, 1), "plates": plates, "exits": exits})
+    # Roundabouts: one junction each, with an exit for every road leaving the ring.
+    for k, rb in enumerate(roundabouts):
+        members = {n for n, kk in ring_rb.items() if kk == k}
+        plates = sorted({roads[ri]["n"] for i in members for nb, ri in adj[i] if nb not in ring and roads[ri]["n"]})
+        exits = exits_of((rb["x"], rb["y"]), members, k)
+        if exits:
+            junctions.append({"x": rb["x"], "y": rb["y"], "rb": k, "plates": plates, "exits": exits})
+    return junctions
+
+
+def main(src, dst, overrides_path=None):
+    overrides = json.load(open(overrides_path, encoding="utf-8")) if overrides_path else {}
+    name_fixes = overrides.get("roadNames", {})
     data = json.load(open(src, encoding="utf-8"))
     els = data["elements"]
     nodes = {e["id"]: e for e in els if e["type"] == "node"}
@@ -101,7 +250,8 @@ def main(src, dst):
         fixes = {"Amadu Bello Way": "Ahmadu Bello Way", "Offa road": "Offa Road",
                  "Sulu Gambari road": "Sulu Gambari Road", "Sulu Gambari": "Sulu Gambari Road",
                  "Lajorin": "Lajorin Road", "Yoruba": "Yoruba Road"}
-        return fixes.get(name, name)
+        name = fixes.get(name, name)
+        return name_fixes.get(name, name)
 
     roads = []
     roundabouts = []
@@ -160,7 +310,9 @@ def main(src, dst):
     if term:
         best = min(roundabouts, key=lambda r: math.hypot(r["x"] - term[0], r["y"] - term[1]))
         best["name"] = "Post Office Roundabout"
-    for rb in roundabouts:
+    for k, rb in enumerate(roundabouts):
+        if str(k) in overrides.get("roundaboutNames", {}):
+            rb["name"] = overrides["roundaboutNames"][str(k)]
         if "name" not in rb:
             rb["name"] = (" / ".join(rb["roads"][:2]) + " Roundabout") if rb["roads"] else "Roundabout"
 
@@ -259,6 +411,16 @@ def main(src, dst):
         else:
             print("notebook place not found:", label, file=sys.stderr)
 
+    junctions = None
+    if overrides_path:
+        targets = [{"name": s["name"], "x": s["x"], "y": s["y"], "r": NEAR_PLACE} for s in spots]
+        targets += [{"name": n["name"], "x": n["x"], "y": n["y"], "r": NEAR_PLACE}
+                    for n in notebook if n["name"] not in {s["name"] for s in spots}]
+        for a in overrides.get("areas", []):
+            ax, ay = proj({"lon": a["lon"], "lat": a["lat"]})
+            targets.append({"name": a["name"], "x": round(ax, 1), "y": round(ay, 1), "r": NEAR_AREA})
+        junctions = build_junctions(out_nodes, roads, roundabouts, targets)
+
     xs = [n[0] for n in out_nodes]
     ys = [n[1] for n in out_nodes]
     zone = {
@@ -275,6 +437,8 @@ def main(src, dst):
         "spots": spots,
         "notebook": notebook,
     }
+    if junctions is not None:
+        zone["junctions"] = junctions
     # .json output is the rebuild's format; .js keeps the prototype's window.ZONE file.
     with open(dst, "w", encoding="utf-8", newline="\n") as f:
         if dst.endswith(".json"):
@@ -286,10 +450,11 @@ def main(src, dst):
             json.dump(zone, f, separators=(",", ":"))
             f.write(";\n")
     print(f"nodes={len(out_nodes)} roads={len(roads)} roundabouts={len(roundabouts)} "
-          f"buildings={len(buildings)} (dropped {dropped} on roads) spots={len(spots)} notebook={len(notebook)}")
+          f"buildings={len(buildings)} (dropped {dropped} on roads) spots={len(spots)} notebook={len(notebook)}"
+          + (f" junctions={len(junctions)}" if junctions is not None else ""))
     for rb in roundabouts:
         print("  roundabout:", rb["name"], rb["x"], rb["y"], "r=", rb["r"])
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2])
+    main(sys.argv[1], sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else None)
