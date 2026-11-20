@@ -12,7 +12,7 @@
     "format": "prettier --write \"src/**/*.{ts,css}\" \"tests/**/*.ts\" index.html",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "zone": "python -I tools/build_zone.py data/osm/zone1-post-office_2026-11-07.json public/zones/zone1-post-office.json",
+    "zone": "python -I tools/build_zone.py data/osm/zone1-post-office_2026-11-07.json public/zones/zone1-post-office.json content/zones/zone1-post-office.overrides.json",
     "android:build": "node scripts/android-build.mjs"
   },
   "dependencies": {

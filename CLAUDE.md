@@ -16,7 +16,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Build: `npm run build`
 - Unit tests: `npm test` (Vitest). One file: `npx vitest run tests/unit/vehicle.test.ts`
 - Browser tests: `npm run build && npm run test:e2e` (phone and desktop; WebGL is software-rendered, so they're slow)
-- Zone build: `npm run zone` (writes `public/zones/zone1-post-office.json`; CI fails if it drifts)
+- Zone build: `npm run zone` (writes `public/zones/zone1-post-office.json` from the pinned OSM extract plus `content/zones/zone1-post-office.overrides.json`: road and roundabout name fixes, area names; CI fails if it drifts). It also computes junctions: name plates and signpost "leads to" (NAV-2, NAV-3)
+- Junction review page for a local to check plates and signposts: `python -I tools/junction_review.py public/zones/zone1-post-office.json <out.html>` (published as a private artifact, not committed)
 - Android debug APK: `npm run android:build` → `android/app/build/outputs/apk/debug/app-debug.apk`. Needs **Java 21** (Gradle 8.14 can't run on 25; the script finds an installed JDK 21) and the **Android 36** SDK platform (SDK at `D:\Android`). App ID `com.asejik.onaile`
 - Inside the app, `config.json` is read from https://ona-ile.asejik.com (see `src/platform/native.ts`), so the remote off switch reaches installed apps
 

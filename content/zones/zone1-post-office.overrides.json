@@ -1,0 +1,10 @@
+{
+  "_about": "Hand-checked fixes applied on top of the OSM extract by tools/build_zone.py. Edit this file, then run npm run zone. Never edit public/zones/ by hand. roundaboutNames: the roundabout's index (as listed by npm run zone) -> its local name. areas: {name, lat, lon} for neighbourhood names that signposts can point to.",
+  "roadNames": {
+    "Beeluxury.ng": "Sabo Oke Road",
+    "High Court road": "High Court Road",
+    "Oke - Ode close": "Oke-Ode Close"
+  },
+  "roundaboutNames": {},
+  "areas": []
+}
