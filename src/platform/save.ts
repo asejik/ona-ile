@@ -71,3 +71,61 @@ export function createSaveStore(store: KeyValueStore, pageCount: number): SaveSt
     },
   };
 }
+
+/*
+ * Save code (SYS-1): the whole save as a short code the player can copy to another device, e.g.
+ * "ONA-2-1JK-32-4-3-7-0F3A". Fields are base 36: version, money, respect, rides, notebook pages as bits,
+ * story flags as bits, then a checksum that catches typos (it is not a lock; repairState clamps values).
+ */
+const CODE_PREFIX = 'ona';
+/** Pages are stored as bits of one number. */
+const MAX_CODE_PAGES = 30;
+
+function checksum(body: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < body.length; i++) {
+    h ^= body.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return ((h >>> 0) % 36 ** 4).toString(36).padStart(4, '0');
+}
+
+export function encodeSaveCode(s: GameState): string {
+  const pages = s.pages.slice(0, MAX_CODE_PAGES).reduce((m, p, i) => m + (p ? 2 ** i : 0), 0);
+  const flags = (s.stageDone ? 1 : 0) + (s.introDone ? 2 : 0) + (s.bisiDone ? 4 : 0);
+  const body = [SCHEMA_VERSION, s.money, s.respect, s.rides, pages, flags]
+    .map((n) => n.toString(36))
+    .join('-');
+  return `${CODE_PREFIX}-${body}-${checksum(body)}`.toUpperCase();
+}
+
+/** The game in a save code, or null if the code is mistyped or not one of ours. */
+export function decodeSaveCode(code: string, pageCount: number): GameState | null {
+  const parts = code.trim().toLowerCase().replace(/\s+/g, '').split('-');
+  if (parts.length !== 8 || parts[0] !== CODE_PREFIX) return null;
+  const fields = parts.slice(1, 7);
+  if (checksum(fields.join('-')) !== parts[7]) return null;
+  if (!fields.every((f) => /^[0-9a-z]{1,8}$/.test(f))) return null;
+  const [version, money, respect, rides, pages, flags] = fields.map((f) => parseInt(f, 36)) as [
+    number,
+    number,
+    number,
+    number,
+    number,
+    number,
+  ];
+  if (version !== SCHEMA_VERSION) return null;
+  const bit = (n: number, i: number) => Math.floor(n / 2 ** i) % 2 === 1;
+  return repairState(
+    {
+      money,
+      respect,
+      rides,
+      pages: Array.from({ length: pageCount }, (_, i) => i < MAX_CODE_PAGES && bit(pages, i)),
+      stageDone: bit(flags, 0),
+      introDone: bit(flags, 1),
+      bisiDone: bit(flags, 2),
+    },
+    pageCount,
+  );
+}

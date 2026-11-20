@@ -381,8 +381,86 @@ body.page {
 .ctl.horn {
   width: var(--touch-min);
   height: var(--touch-min);
-  align-self: center;
   font-size: var(--text-xs);
+}
+
+/* Bottom left: the horn, with the steering buttons under it when buttons are on (DESIGN §4). */
+.cluster.left {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+#hud[data-controls='swipe'] [data-ctl] {
+  display: none;
+}
+
+/* Swipe-to-drive ring (ACC-3): appears where the finger lands, the thumb follows it. */
+.swipe-ring {
+  position: fixed;
+  width: 80px;
+  height: 80px;
+  margin: -40px 0 0 -40px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 0 2px var(--ink),
+    0 0 0 2px var(--paper);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dur-fast) ease-out;
+}
+
+.swipe-ring.on {
+  opacity: 1;
+  transition: none;
+}
+
+.swipe-ring .thumb {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--keke);
+  box-shadow: inset 0 0 0 2px var(--ink);
+}
+
+.swipe-hint {
+  position: absolute;
+  left: 50%;
+  bottom: 34%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  pointer-events: none;
+}
+
+.swipe-hint .chip {
+  position: static;
+  font-weight: 800;
+  font-size: var(--text-sm);
+}
+
+.swipe-ring.ghost {
+  position: static;
+  margin: 0;
+  opacity: 0.8;
+}
+
+.swipe-ring.ghost .thumb {
+  animation: swipe-hint 1.6s var(--ease-out) infinite;
+}
+
+@keyframes swipe-hint {
+  0%,
+  20% {
+    transform: none;
+  }
+  70%,
+  100% {
+    transform: translateY(-30px);
+  }
 }
 
 /* On phones in portrait the street sign sits below the minimap row so they never overlap. */
@@ -594,6 +672,8 @@ body.page {
   box-sizing: border-box;
   padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
     max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  /* Above the HUD's raised pause button. */
+  z-index: 3;
 }
 
 .title-overlay {
@@ -770,10 +850,130 @@ body.page {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .toast {
+  .toast,
+  .swipe-ring.ghost .thumb {
     animation: none;
+  }
+  .swipe-ring {
+    transition: none;
   }
   .comfort .bar i {
     transition: none;
+  }
+}
+
+/* A button that reads as a link in fine print, with a 48px tall hit area. */
+.linkbtn {
+  border: 0;
+  background: none;
+  font-size: inherit;
+  text-decoration: underline;
+  display: inline-block;
+  padding: calc((var(--touch-min) - 1.5em) / 2) var(--space-1);
+  margin: calc((1.5em - var(--touch-min)) / 2) 0;
+}
+
+/* Settings (DESIGN §6). The card scrolls on short screens. */
+.settings-card {
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+.set-row {
+  margin-bottom: var(--space-4);
+}
+
+.set-row h3 {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--text-md);
+}
+
+.seg {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.seg button {
+  flex: 1;
+  min-height: var(--touch-min);
+  border: 0;
+  border-radius: var(--radius-button);
+  background: transparent;
+  box-shadow: var(--outline-soft);
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--text-md);
+}
+
+.seg button[aria-pressed='true'] {
+  background: var(--keke);
+  box-shadow: var(--outline);
+}
+
+.hint {
+  display: block;
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.card p.hint {
+  margin-bottom: var(--space-2);
+}
+
+.code-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.code {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--touch-min);
+  box-sizing: border-box;
+  padding: var(--space-3);
+  border: 0;
+  border-radius: var(--radius-button);
+  background: var(--paper-2);
+  box-shadow: var(--outline-soft);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-weight: 800;
+  font-size: var(--text-md);
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+input.code {
+  text-transform: uppercase;
+}
+
+input.code:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.card p.field-msg {
+  min-height: 1.45em;
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.field-msg.bad {
+  color: var(--danger-text);
+}
+
+/* Controls and swipe steering only matter on touch screens; desktop drives with the keyboard. */
+@media (hover: hover) and (pointer: fine) {
+  .set-row[data-touch] {
+    display: none;
   }
 }
