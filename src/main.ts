@@ -6,6 +6,7 @@ import { crashReportsAllowed, loadConsent } from './platform/consent';
 import { reportError, startCrashReporting } from './platform/crash';
 import { configUrl, PLATFORM } from './platform/native';
 import { createSaveStore } from './platform/save';
+import { loadSettings, saveSettings } from './platform/settings';
 import { browserStore } from './platform/storage';
 import { createMarkers } from './render/markers';
 import { createScene } from './render/scene';
@@ -16,6 +17,8 @@ import { createSound } from './ui/audio';
 import { createDialogs } from './ui/dialog';
 import { createInput } from './ui/input';
 import { createMinimap } from './ui/minimap';
+import { createSettingsPanel } from './ui/settings';
+import { createSwipe, STEER_GAIN } from './ui/swipe';
 import { createTracker } from './ui/tracker';
 import { Obstacles } from './world/collision';
 import { placeKiosks, placeTrees, roundaboutIslands, seededRandom } from './world/props';
@@ -93,14 +96,18 @@ async function boot(): Promise<void> {
 
   const start = startPose(zone, roads);
   const player = createVehicle(start.x, start.y, start.h);
+  const store = browserStore();
+  const settings = loadSettings(store);
   const sound = createSound();
+  sound.muted = !settings.sound;
   const dialogs = createDialogs($('dialog'), $('toasts'));
   const tracker = createTracker($('tracker'));
   const pauseEl = $('pause');
   const titleEl = $('title');
+  const settingsEl = $('settings');
   let started = false;
   /** The world stands still on the title screen, while a card is open, and while paused. */
-  const paused = () => !started || dialogs.open || !pauseEl.hidden;
+  const paused = () => !started || dialogs.open || !pauseEl.hidden || !settingsEl.hidden;
 
   const scene = createScene(
     $<HTMLCanvasElement>('gl'),
@@ -119,7 +126,7 @@ async function boot(): Promise<void> {
     zone,
     roads,
     spots,
-    saves: createSaveStore(browserStore(), zone.notebook.length),
+    saves: createSaveStore(store, zone.notebook.length),
     dialogs,
     markers,
     sound,
@@ -142,6 +149,43 @@ async function boot(): Promise<void> {
     firstGesture: () => sound.unlock(),
   });
 
+  // Controls (ACC-3): swipe, buttons or both. The hint shows on touch screens until the first real drag.
+  const hudEl = $('hud');
+  const hintEl = $('swipeHint');
+  const touch = window.matchMedia('(pointer: coarse)').matches;
+  const applySettings = () => {
+    hudEl.dataset.controls = settings.controls;
+    hintEl.hidden = !touch || settings.controls === 'buttons' || settings.swipeHintDone;
+    sound.muted = !settings.sound;
+  };
+  applySettings();
+  const swipe = createSwipe($('gl'), $('swipeRing'), input, {
+    enabled: () => settings.controls !== 'buttons' && !paused(),
+    gain: () => STEER_GAIN[settings.steer],
+    onDrive: () => {
+      if (settings.swipeHintDone) return;
+      settings.swipeHintDone = true;
+      saveSettings(store, settings);
+      applySettings();
+    },
+  });
+  const settingsPanel = createSettingsPanel(settingsEl, {
+    settings,
+    changed: () => {
+      saveSettings(store, settings);
+      applySettings();
+    },
+    game: () => ride.state,
+    pageCount: zone.notebook.length,
+    load: (state) => {
+      ride.load(state);
+      if (state.introDone) {
+        $('startBtn').textContent = 'Continue';
+        $('newBtn').hidden = false;
+      }
+    },
+  });
+
   // Buildings, kiosks and islands first, then the other vehicles.
   const env = {
     roadDist: (x: number, y: number) => roads.nearest(x, y).dist,
@@ -161,6 +205,7 @@ async function boot(): Promise<void> {
     if (!started || dialogs.open) return;
     pauseEl.hidden = !on;
     if (on) {
+      swipe.cancel();
       input.gas = input.brake = input.left = input.right = 0;
       const st = ride.state;
       $('pauseSummary').textContent =
@@ -170,10 +215,14 @@ async function boot(): Promise<void> {
   };
   $('pauseBtn').addEventListener('click', () => setPaused(true));
   $('resumeBtn').addEventListener('click', () => setPaused(false));
-  $('soundBtn').addEventListener('click', () => {
-    sound.muted = !sound.muted;
-    $('soundBtn').textContent = `Sound: ${sound.muted ? 'off' : 'on'}`;
+  $('settingsBtn').addEventListener('click', () => {
+    pauseEl.hidden = true;
+    settingsPanel.show(() => {
+      pauseEl.hidden = false;
+      $('resumeBtn').focus({ preventScroll: true });
+    });
   });
+  $('titleSettings').addEventListener('click', () => settingsPanel.show());
   $('restartBtn').addEventListener('click', () => {
     pauseEl.hidden = true;
     const s = startPose(zone, roads);
@@ -182,6 +231,7 @@ async function boot(): Promise<void> {
   });
   $('photoBtn').addEventListener('click', () => ride.takePhoto());
   window.addEventListener('keydown', (e) => {
+    if (e.code === 'Escape' && settingsPanel.open) return settingsPanel.close();
     if (!started) return;
     if (e.code === 'Escape') setPaused(pauseEl.hidden === true);
     else if (e.code === 'KeyP' && !e.repeat && !paused()) ride.takePhoto();

@@ -65,6 +65,8 @@ export interface RideLoop {
   wardenEvents(events: WardenEvent[]): void;
   takePhoto(): void;
   restart(): void;
+  /** Replaces the game with one from a save code. */
+  load(next: GameState): void;
   tracker(player: { x: number; y: number }): TrackerState;
 }
 
@@ -226,6 +228,20 @@ export function createRideLoop(d: RideDeps): RideLoop {
     );
   };
 
+  /** Drops any ride in progress and starts from the given game. */
+  const replace = (next: GameState) => {
+    offers = [];
+    trip = null;
+    route = null;
+    syncWaiting();
+    d.markers.setRider(null);
+    d.markers.setDestination(null);
+    d.markers.setArrowTarget(null);
+    state = next;
+    save();
+    syncNotebook();
+  };
+
   const loop: RideLoop = {
     get state() {
       return state;
@@ -346,17 +362,12 @@ export function createRideLoop(d: RideDeps): RideLoop {
       });
     },
     restart() {
-      offers = [];
-      trip = null;
-      route = null;
-      syncWaiting();
-      d.markers.setRider(null);
-      d.markers.setDestination(null);
-      d.markers.setArrowTarget(null);
-      state = { ...newGame(pages), introDone: true };
-      save();
-      syncNotebook();
+      replace({ ...newGame(pages), introDone: true });
       d.dialogs.toast('Prologue restarted. Look for passengers with the ₦ sign.');
+    },
+    load(next) {
+      replace(next);
+      d.dialogs.toast('Save code loaded. Welcome back.', 'good');
     },
     tracker(player) {
       let ride: TrackerState['ride'];

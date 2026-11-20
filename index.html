@@ -49,15 +49,21 @@
         <div id="street" class="sign" hidden></div>
         <div class="chip speed"><span id="speed">0</span> <small>km/h</small></div>
         <div class="controls" aria-label="Driving controls">
-          <div class="cluster">
-            <button class="ctl" data-ctl="left" aria-label="Steer left">◀</button>
-            <button class="ctl" data-ctl="right" aria-label="Steer right">▶</button>
+          <div class="cluster left">
+            <button class="ctl horn" data-act="horn" aria-label="Horn">Horn</button>
+            <div class="cluster">
+              <button class="ctl" data-ctl="left" aria-label="Steer left">◀</button>
+              <button class="ctl" data-ctl="right" aria-label="Steer right">▶</button>
+            </div>
           </div>
           <div class="cluster">
-            <button class="ctl horn" data-act="horn" aria-label="Horn">Horn</button>
             <button class="ctl" data-ctl="brake" aria-label="Brake and reverse">Brake</button>
             <button class="ctl" data-ctl="gas" aria-label="Accelerate">Gas</button>
           </div>
+        </div>
+        <div id="swipeHint" class="swipe-hint" hidden>
+          <div class="swipe-ring ghost" aria-hidden="true"><div class="thumb"></div></div>
+          <p class="chip">Drag to drive</p>
         </div>
         <p class="chip credit">
           Map data ©
@@ -67,6 +73,7 @@
           · <a href="./privacy.html">Privacy</a>
         </p>
       </div>
+      <div id="swipeRing" class="swipe-ring" aria-hidden="true" hidden><div class="thumb"></div></div>
       <div id="dialog" class="overlay" hidden></div>
       <div id="flash" class="flash" aria-hidden="true"></div>
 
@@ -93,7 +100,8 @@
             <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener"
               >OpenStreetMap contributors</a
             >
-            · <a href="./privacy.html">Privacy</a>
+            · <a href="./privacy.html">Privacy</a> ·
+            <button id="titleSettings" class="linkbtn">Settings</button>
           </p>
         </div>
       </div>
@@ -105,8 +113,69 @@
           <p id="pauseSummary"></p>
           <div class="btns">
             <button id="resumeBtn" class="btn">Resume</button>
-            <button id="soundBtn" class="btn outline">Sound: on</button>
+            <button id="settingsBtn" class="btn outline">Settings</button>
             <button id="restartBtn" class="btn outline">Restart prologue</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="settings" class="overlay title-overlay" hidden>
+        <div class="card settings-card" role="dialog" aria-modal="true" aria-labelledby="settingsName">
+          <h2 id="settingsName" class="card-title">Settings</h2>
+          <section class="set-row" data-touch>
+            <h3 id="ctlLabel">Controls</h3>
+            <div class="seg" role="group" aria-labelledby="ctlLabel" data-setting="controls">
+              <button data-value="swipe">Swipe</button>
+              <button data-value="buttons">Buttons</button>
+              <button data-value="both">Both</button>
+            </div>
+            <p class="hint">Swipe: drag anywhere on the road. Up goes, down brakes, sideways steers.</p>
+          </section>
+          <section class="set-row" data-touch>
+            <h3 id="steerLabel">Swipe steering</h3>
+            <div class="seg" role="group" aria-labelledby="steerLabel" data-setting="steer">
+              <button data-value="low">Gentle</button>
+              <button data-value="normal">Normal</button>
+              <button data-value="high">Quick</button>
+            </div>
+          </section>
+          <section class="set-row">
+            <h3 id="soundLabel">Sound</h3>
+            <div class="seg" role="group" aria-labelledby="soundLabel" data-setting="sound">
+              <button data-value="on">On</button>
+              <button data-value="off">Off</button>
+            </div>
+          </section>
+          <section class="set-row">
+            <h3>Save code</h3>
+            <p class="hint">Copy this code to carry your progress to another phone or browser.</p>
+            <div class="code-row">
+              <output id="saveCode" class="code" aria-label="Your save code"></output>
+              <button id="copyCode" class="btn outline">Copy</button>
+            </div>
+            <label for="importCode" class="hint">Have a code from another device?</label>
+            <div class="code-row">
+              <input
+                id="importCode"
+                class="code"
+                autocomplete="off"
+                autocapitalize="characters"
+                spellcheck="false"
+                aria-describedby="importMsg"
+              />
+              <button id="importBtn" class="btn outline">Import</button>
+            </div>
+            <p id="importMsg" class="field-msg" role="status"></p>
+            <div id="importConfirm" hidden>
+              <p id="importSummary"></p>
+              <div class="btns">
+                <button id="importYes" class="btn">Replace my progress</button>
+                <button id="importNo" class="btn outline">Keep mine</button>
+              </div>
+            </div>
+          </section>
+          <div class="btns">
+            <button id="settingsDone" class="btn">Done</button>
           </div>
         </div>
       </div>
