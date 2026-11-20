@@ -33,15 +33,10 @@
         </button>
         <div id="toasts" class="toasts" aria-live="polite"></div>
         <button id="photoBtn" class="btn context-btn" hidden>Take a photo for Baba</button>
-        <div class="mapwrap">
-          <canvas
-            id="minimap"
-            width="300"
-            height="300"
-            aria-label="Map around you, turning with your keke"
-          ></canvas>
-          <div id="north" class="north" aria-hidden="true">N</div>
-        </div>
+        <button id="mapBtn" class="mapwrap" aria-label="Open the full map">
+          <canvas id="minimap" width="300" height="300" aria-hidden="true"></canvas>
+          <span id="north" class="north" aria-hidden="true">N</span>
+        </button>
         <div id="warden" class="chip warden" hidden>
           <span id="wardenName"></span>
           <span id="wardenSig" class="signal"></span>
@@ -93,7 +88,7 @@
           <p class="keys">
             <kbd>W</kbd>/<kbd>↑</kbd> gas · <kbd>S</kbd>/<kbd>↓</kbd> brake and reverse · <kbd>A</kbd
             ><kbd>D</kbd>/<kbd>←</kbd><kbd>→</kbd> steer · <kbd>H</kbd> horn · <kbd>P</kbd> photo ·
-            <kbd>Esc</kbd> pause
+            <kbd>M</kbd> map · <kbd>Esc</kbd> pause
           </p>
           <p class="fine">
             Map data ©
@@ -114,11 +109,45 @@
           <div class="btns">
             <button id="resumeBtn" class="btn">Resume</button>
             <button id="settingsBtn" class="btn outline">Settings</button>
+            <button id="fullMapBtn" class="btn outline">Full map</button>
             <button id="restartBtn" class="btn outline">Restart prologue</button>
           </div>
         </div>
       </div>
 
+      <div id="fullmap" class="fullmap" role="dialog" aria-modal="true" aria-labelledby="fullmapName" hidden>
+        <canvas aria-label="Map of Post Office and Unity Road with road names, places and markers"></canvas>
+        <div class="fm-top">
+          <h2 id="fullmapName" class="chip fm-title">Post Office and Unity Road</h2>
+          <button class="fm-btn" data-map="close" aria-label="Close the map">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        </div>
+        <div class="fm-zoom">
+          <button class="fm-btn" data-map="in" aria-label="Zoom in">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+          </button>
+          <button class="fm-btn" data-map="out" aria-label="Zoom out">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg>
+          </button>
+          <button class="fm-btn" data-map="centre" aria-label="Centre on your keke">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l6 16-6-4-6 4z" /></svg>
+          </button>
+        </div>
+        <ul class="chip fm-legend" aria-label="Map key">
+          <li><span class="lg you" aria-hidden="true"></span>You</li>
+          <li><span class="lg pax" aria-hidden="true">₦</span>Passenger waiting</li>
+          <li><span class="lg drop" aria-hidden="true"></span>Drop-off</li>
+          <li><span class="lg book" aria-hidden="true"></span>Baba's notebook place</li>
+          <li><span class="lg place" aria-hidden="true"></span>Place</li>
+        </ul>
+        <p class="chip credit fm-credit">
+          Map data ©
+          <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener"
+            >OpenStreetMap contributors</a
+          >
+        </p>
+      </div>
       <div id="settings" class="overlay title-overlay" hidden>
         <div class="card settings-card" role="dialog" aria-modal="true" aria-labelledby="settingsName">
           <h2 id="settingsName" class="card-title">Settings</h2>
