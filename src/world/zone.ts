@@ -38,6 +38,32 @@ export interface ZoneNotebookPlace extends ZoneSpot {
   note: string;
 }
 
+/** One way out of a junction (NAV-3). */
+export interface ZoneExit {
+  /** Direction out of the junction in whole degrees: 0 is east, 90 is north. */
+  h: number;
+  /** The road's name, or '' for an unnamed road. */
+  road: string;
+  /** The first named place, area or roundabout this road leads to, if one is within reach. */
+  to?: string;
+  /** Distance to it along the road, in game metres. */
+  d?: number;
+}
+
+/**
+ * A junction with street name plates (NAV-2) and signpost data (NAV-3), computed by tools/build_zone.py.
+ * Divided roads are merged, so one real crossing is one junction.
+ */
+export interface ZoneJunction {
+  x: number;
+  y: number;
+  /** Index into zone.roundabouts when the junction is a roundabout. */
+  rb?: number;
+  /** The named roads that meet here, sorted. */
+  plates: string[];
+  exits: ZoneExit[];
+}
+
 export interface Zone {
   id: string;
   title: string;
@@ -53,6 +79,8 @@ export interface Zone {
   buildings: number[][];
   spots: ZoneSpot[];
   notebook: ZoneNotebookPlace[];
+  /** Empty for zones built without an overrides file. */
+  junctions: ZoneJunction[];
 }
 
 /** Checks the fields the game relies on, so a bad file fails with a clear message. */
@@ -64,7 +92,7 @@ export function parseZone(data: unknown): Zone {
     if (z[key] === undefined) throw new Error(`Zone file is missing "${key}"`);
   }
   if (!Array.isArray(z.nodes) || z.nodes.length === 0) throw new Error('Zone file has no road nodes');
-  return z as Zone;
+  return { ...z, junctions: Array.isArray(z.junctions) ? z.junctions : [] } as Zone;
 }
 
 export async function loadZone(url: string): Promise<Zone> {

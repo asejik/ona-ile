@@ -38,7 +38,7 @@ jobs:
           echo "zone1.js matches the pipeline output."
       - name: Rebuild the game's zone JSON and compare
         run: |
-          python -I tools/build_zone.py data/osm/zone1-post-office_2026-11-07.json "$RUNNER_TEMP/zone1.json"
+          python -I tools/build_zone.py data/osm/zone1-post-office_2026-11-07.json "$RUNNER_TEMP/zone1.json" content/zones/zone1-post-office.overrides.json
           cmp "$RUNNER_TEMP/zone1.json" public/zones/zone1-post-office.json \
             || { echo "public/zones/zone1-post-office.json differs from the pipeline output. Run npm run zone, don't hand-edit."; exit 1; }
           echo "zone1-post-office.json matches the pipeline output."
