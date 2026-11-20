@@ -65,6 +65,11 @@ def main(src, dst):
     for n, j in enumerate(junctions, 1):
         lon, lat = lonlat(j["x"], j["y"])
         osm = f"https://www.openstreetmap.org/?mlat={lat:.6f}&mlon={lon:.6f}#map=19/{lat:.6f}/{lon:.6f}"
+        # Visual reference only (docs/prompts/project/real_world_setting.md): look, never copy into the game.
+        gmaps = f"https://www.google.com/maps/search/?api=1&query={lat:.6f},{lon:.6f}"
+        street = f"https://www.google.com/maps/@?api=1&map_action=pano&viewpoint={lat:.6f},{lon:.6f}"
+        bing = f"https://www.bing.com/maps?cp={lat:.6f}~{lon:.6f}&lvl=19&style=h"
+        mapillary = f"https://www.mapillary.com/app/?lat={lat:.6f}&lng={lon:.6f}&z=18"
         rb = j.get("rb")
         title = z["roundabouts"][rb]["name"] if rb is not None else " / ".join(j["plates"])
         plates = "".join(f'<span class="plate">{html.escape(p)}</span>' for p in j["plates"])
@@ -86,7 +91,12 @@ def main(src, dst):
       <p class="label">Signposts, by the way each road leaves</p>
       <div class="tablewrap"><table><thead><tr><th>Leaves to the</th><th>Road</th><th>Sign says</th></tr></thead>
       <tbody>{"".join(rows)}</tbody></table></div>
-      <p><a href="{osm}" target="_blank" rel="noopener">Open this spot on OpenStreetMap</a></p>
+      <p class="links">Look at this spot:
+        <a href="{street}" target="_blank" rel="noopener">Street View</a>
+        <a href="{gmaps}" target="_blank" rel="noopener">Google Maps</a>
+        <a href="{bing}" target="_blank" rel="noopener">Bing aerial</a>
+        <a href="{mapillary}" target="_blank" rel="noopener">Mapillary photos</a>
+        <a href="{osm}" target="_blank" rel="noopener">OpenStreetMap</a></p>
       <div class="verdict" role="group" aria-label="Verdict for J{n}">
         <button type="button" data-v="ok" aria-pressed="false">Matches</button>
         <button type="button" data-v="bad" aria-pressed="false">Something's wrong</button>
@@ -182,6 +192,8 @@ th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 800; p
 td { padding: 6px 8px 6px 0; border-top: 1px dashed var(--rule); vertical-align: top; }
 .muted { color: var(--muted); font-size: 13px; }
 a { color: var(--ink); }
+.links { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.links a { display: inline-block; padding: 6px 0; font-weight: 800; }
 .verdict { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 8px; }
 .verdict button[data-v="ok"][aria-pressed="true"] { background: var(--good); color: var(--paper); box-shadow: none; }
 .verdict button[data-v="bad"][aria-pressed="true"] { background: var(--bad); color: var(--paper); box-shadow: none; }
@@ -198,12 +210,13 @@ footer { color: var(--muted); font-size: 13px; margin-top: 24px; }
   <section class="panel" aria-labelledby="howto">
     <h2 id="howto">How to check</h2>
     <ol>
-      <li>Find a junction you know (search by road or place name below).</li>
-      <li>Are the plates the right road names? Does each sign point the right way to that place?</li>
+      <li>Find a junction (search by road or place name below). You don't have to go there: open its <b>Street View</b> or <b>Google Maps</b> link and look around.</li>
+      <li>Are the plates the right road names? Does each sign point the right way to that place? The small map has north at the top, like Google Maps.</li>
       <li>Tap <b>Matches</b> or <b>Something's wrong</b>, add a note if it's wrong.</li>
       <li>When you've done 5 or more, tap <b>Copy my results</b> and paste them to Claude.</li>
     </ol>
   </section>
+  <p class="lede muted">Google, Bing and Mapillary are for looking only. If something differs, tell Claude what you saw or know; nothing is copied from those maps into the game. Street View may not cover every street in Ilorin; Bing aerial and Google's satellite view always show the road shapes.</p>
   <section class="panel" aria-labelledby="names">
     <h2 id="names">Name questions</h2>
     <ul>{{QUESTIONS}}</ul>

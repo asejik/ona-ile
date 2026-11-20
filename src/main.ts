@@ -21,8 +21,9 @@ import { createSettingsPanel } from './ui/settings';
 import { createSwipe, STEER_GAIN } from './ui/swipe';
 import { createTracker } from './ui/tracker';
 import { Obstacles } from './world/collision';
-import { placeKiosks, placeTrees, roundaboutIslands, seededRandom } from './world/props';
+import { circlePolygon, placeKiosks, placeTrees, roundaboutIslands, seededRandom } from './world/props';
 import { RoadNetwork } from './world/roads';
+import { placeSignPosts } from './world/signs';
 import { buildSpots } from './world/spots';
 import { startPose } from './world/start';
 import { loadZone } from './world/zone';
@@ -38,6 +39,8 @@ interface DebugHandle {
   stats?: { calls: number; triangles: number };
   /** Traffic and warden state, for tests. */
   traffic?: number;
+  /** Street name plates and signposts placed (NAV-2, NAV-3), for tests. */
+  signs?: { x: number; y: number; plates: string[]; blades: string[] }[];
   wardens?: { name: string; phase: 'go' | 'stop' }[];
   /** 'pending' until the remote switch and the player's choice have been checked. */
   crashReporting: 'pending' | 'on' | 'off';
@@ -78,10 +81,18 @@ async function boot(): Promise<void> {
   const rand = seededRandom(WORLD_SEED);
   const buildingsOnly = new Obstacles(zone);
   const kiosks = placeKiosks(roads, (x, y) => buildingsOnly.collide(x, y, 1.5).hit, rand);
-  const obstacles = new Obstacles(
+  const islands = roundaboutIslands(zone);
+  // Street name plates and signposts (NAV-2, NAV-3) stand on corners clear of buildings and kiosks.
+  const withKiosks = new Obstacles(
     zone,
     kiosks.map((k) => k.poly),
   );
+  const signPosts = placeSignPosts(zone, roads, islands, (x, y) => withKiosks.collide(x, y, 0.6).hit);
+  // Poles are solid, so the keke bumps them rather than driving through.
+  const obstacles = new Obstacles(zone, [
+    ...kiosks.map((k) => k.poly),
+    ...signPosts.map((p) => circlePolygon(p.x, p.y, 0.25, 6)),
+  ]);
   const trees = placeTrees(
     zone,
     roads,
@@ -89,7 +100,6 @@ async function boot(): Promise<void> {
     rand,
     LOW_DETAIL ? 520 : 900,
   );
-  const islands = roundaboutIslands(zone);
   const wardens = createWardens(islands);
   const npcs = createTraffic(roads, zone.nodes, rand, LOW_DETAIL ? 10 : 16);
   const spots = buildSpots(zone, roads);
@@ -113,7 +123,7 @@ async function boot(): Promise<void> {
     $<HTMLCanvasElement>('gl'),
     zone,
     roads,
-    { kiosks, trees, islands, wardens, npcs },
+    { kiosks, trees, islands, wardens, npcs, signPosts },
     { lowDetail: LOW_DETAIL, reducedMotion: REDUCED_MOTION },
     rand,
   );
@@ -325,6 +335,12 @@ async function boot(): Promise<void> {
     road: '',
     stats: scene.stats,
     traffic: npcs.length,
+    signs: signPosts.map((p) => ({
+      x: p.x,
+      y: p.y,
+      plates: p.plates.map((pl) => pl.name),
+      blades: p.blades.map((b) => b.to),
+    })),
     game: {
       get money() {
         return ride.state.money;
