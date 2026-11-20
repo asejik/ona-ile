@@ -3,7 +3,7 @@ import { decodeSaveCode, encodeSaveCode } from '../../src/platform/save';
 import { DEFAULT_SETTINGS, SETTINGS_KEY, loadSettings, saveSettings } from '../../src/platform/settings';
 import type { KeyValueStore } from '../../src/platform/storage';
 import { newGame, type GameState } from '../../src/sim/rides';
-import { DEAD_ZONE, STEER_GAIN, SWIPE_RADIUS, swipeDrive } from '../../src/ui/swipe';
+import { DEAD_ZONE, STEER_DEAD_BAND, STEER_GAIN, SWIPE_RADIUS, swipeDrive } from '../../src/ui/swipe';
 
 const memory = (): KeyValueStore & { data: Map<string, string> } => {
   const data = new Map<string, string>();
@@ -38,14 +38,28 @@ describe('swipe-to-drive (ACC-3)', () => {
   it('the angle mixes steering in: up-right is gas and right, down-left is brake and left', () => {
     const ur = swipeDrive(R, -R);
     expect(ur.gas).toBeCloseTo(Math.SQRT1_2, 5);
-    expect(ur.right).toBeCloseTo(Math.SQRT1_2, 5);
+    // A 45° drag steers about 40%, not 71%: the curve keeps diagonals calm.
+    const diagonal = ((Math.SQRT1_2 - STEER_DEAD_BAND) / (1 - STEER_DEAD_BAND)) ** 2;
+    expect(ur.right).toBeCloseTo(diagonal, 5);
+    expect(ur.right).toBeLessThan(0.45);
     expect(ur.left).toBe(0);
     const dl = swipeDrive(-R, R);
     expect(dl.brake).toBeGreaterThan(0.5);
-    expect(dl.left).toBeGreaterThan(0.5);
+    expect(dl.left).toBeCloseTo(diagonal, 5);
     // Straight sideways steers without touching the pedals: the keke coasts round the bend.
     const side = swipeDrive(-R, 0);
     expect(side).toEqual({ gas: 0, brake: 0, left: 1, right: 0 });
+  });
+
+  it('a thumb drifting a little off straight up does not steer (first phone test: too sharp)', () => {
+    // About 11° off vertical: full gas, no steering at all.
+    const drift = swipeDrive(R * 0.2, -R);
+    expect(drift.gas).toBeGreaterThan(0.9);
+    expect(drift.left + drift.right).toBe(0);
+    // About 20° off: only a touch of steering.
+    const lean = swipeDrive(R * 0.36, -R);
+    expect(lean.right).toBeGreaterThan(0);
+    expect(lean.right).toBeLessThan(0.05);
   });
 
   it('steering sensitivity scales the steer and never passes full lock', () => {
