@@ -70,3 +70,25 @@ describe('junctions (NAV-2, NAV-3)', () => {
     expect([...roadNames].some((n) => /\.(ng|com)\b/i.test(n))).toBe(false);
   });
 });
+
+describe('street-name check from addresses', () => {
+  const check = (zone as unknown as { nameCheck: { name: string; verdict: string; agree: number }[] })
+    .nameCheck;
+
+  it('names streets OSM left unnamed, only on agreeing addresses', () => {
+    const inferred = zone.roads.filter((r) => r.ns === 'a');
+    expect(inferred.length).toBeGreaterThan(10);
+    for (const e of check.filter((e) => e.verdict === 'inferred')) expect(e.agree).toBeGreaterThanOrEqual(2);
+  });
+
+  it('spelling variants join the road OSM already names', () => {
+    expect(roadNames.has("Emir's Road")).toBe(true);
+    for (const variant of ['Emir Road', 'Emirs Road', 'Lajonrin Road'])
+      expect(roadNames.has(variant)).toBe(false);
+  });
+
+  it('every road name has a verdict', () => {
+    const judged = new Set(check.map((e) => e.name));
+    for (const n of roadNames) expect(judged.has(n), n).toBe(true);
+  });
+});

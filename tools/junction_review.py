@@ -57,10 +57,20 @@ def main(src, dst):
     def where(h):
         return COMPASS[round(h / 45) % 8]
 
+    verdict = {e["name"]: e for e in z.get("nameCheck", [])}
+    RANK = {"disputed": 0, "unconfirmed": 2, "inferred": 3, "confirmed": 3, "owner": 3}
+
+    def level(j):
+        # doubtful: a plate name the addresses dispute; check: an OSM name no address mentions.
+        worst = min((RANK.get(verdict.get(p, {}).get("verdict", "unconfirmed"), 2) for p in j["plates"]), default=3)
+        return "doubtful" if worst == 0 else "check" if worst < 3 else "confident"
+
+    ORDER = {"doubtful": 0, "check": 1, "confident": 2}
     junctions = sorted(
         z["junctions"],
-        key=lambda j: (j.get("rb") is None, -len(j["plates"]), -sum(1 for e in j["exits"] if e.get("to")), j["x"]),
+        key=lambda j: (ORDER[level(j)], j.get("rb") is None, -len(j["plates"]), j["x"]),
     )
+    counts = {k: sum(1 for j in junctions if level(j) == k) for k in ORDER}
     cards = []
     for n, j in enumerate(junctions, 1):
         lon, lat = lonlat(j["x"], j["y"])
@@ -72,7 +82,17 @@ def main(src, dst):
         mapillary = f"https://www.mapillary.com/app/?lat={lat:.6f}&lng={lon:.6f}&z=18"
         rb = j.get("rb")
         title = z["roundabouts"][rb]["name"] if rb is not None else " / ".join(j["plates"])
-        plates = "".join(f'<span class="plate">{html.escape(p)}</span>' for p in j["plates"])
+        def plate(p):
+            v = verdict.get(p, {})
+            why = {"disputed": f'addresses say “{html.escape(v.get("rival", ""))}”',
+                   "inferred": "name from nearby addresses", "unconfirmed": "no address clues",
+                   "confirmed": f'{v.get("agree", 0)} addresses agree', "owner": "you confirmed"}.get(
+                v.get("verdict", "unconfirmed"), "")
+            return f'<span class="plate">{html.escape(p)}</span><span class="why">{why}</span>'
+
+        plates = "".join(f'<span class="pl">{plate(p)}</span>' for p in j["plates"])
+        lv = level(j)
+        badge = {"doubtful": "Doubtful name", "check": "Worth a look", "confident": "Names confirmed"}[lv]
         rows = []
         for e in j["exits"]:
             road = html.escape(e["road"]) if e["road"] else '<span class="muted">unnamed road</span>'
@@ -81,8 +101,8 @@ def main(src, dst):
             rows.append(f"<tr><td>{where(e['h'])}</td><td>{road}</td><td>{to}</td></tr>")
         search = html.escape(" ".join([title] + j["plates"] + [e.get("to", "") for e in j["exits"]]).lower())
         cards.append(f'''
-<article class="jn" id="j{n}" data-n="{n}" data-search="{search}">
-  <header><span class="num">J{n}</span><h2>{html.escape(title)}</h2></header>
+<article class="jn" id="j{n}" data-n="{n}" data-level="{lv}" data-search="{search}">
+  <header><span class="num">J{n}</span><h2>{html.escape(title)}</h2><span class="lv {lv}">{badge}</span></header>
   <div class="body">
     <div class="map">{svg(j)}</div>
     <div class="info">
@@ -122,11 +142,17 @@ def main(src, dst):
     for k, r in long_names:
         questions.append(f'<li>Roundabout {k} is called “{html.escape(r["name"])}” for now. Too long for a sign: '
                          f'what do locals call it? <a href="{rb_link(r)}" target="_blank" rel="noopener">See it</a></li>')
-    questions.append('<li>The map data says “Emir Road” for the A1. Is it “Emir’s Road” on the street?</li>')
+    for e in z.get("nameCheck", []):
+        if e["verdict"] == "disputed":
+            questions.append(f'<li>The map calls it “{html.escape(e["name"])}”, but {e["rivalCount"]} nearby addresses say '
+                             f'“{html.escape(e["rival"])}”. What is it called on the street?</li>')
     questions.append('<li>Any neighbourhood names signs should point to (GRA, Oko Erin, Sabo Oke…)? '
                      'Name them and roughly where they start.</li>')
 
-    page = TEMPLATE.replace("{{CARDS}}", "".join(cards)).replace("{{COUNT}}", str(len(junctions))) \
+    summary = (f'<b>{counts["confident"]}</b> junctions have names the addresses confirm, '
+               f'<b>{counts["check"]}</b> have a name no address mentions (worth a look), and '
+               f'<b>{counts["doubtful"]}</b> have a disputed name. Doubtful ones come first.')
+    page = TEMPLATE.replace("{{SUMMARY}}", summary).replace("{{CARDS}}", "".join(cards)).replace("{{COUNT}}", str(len(junctions))) \
         .replace("{{QUESTIONS}}", "".join(questions))
     with open(dst, "w", encoding="utf-8", newline="\n") as f:
         f.write(page)
@@ -183,7 +209,14 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid 
 .n { fill: var(--muted); font: 800 11px var(--body); }
 #arr path { fill: var(--sign); }
 .label { font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
-.plates { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.plates { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 14px; }
+.pl { display: inline-flex; flex-direction: column; gap: 2px; }
+.why { font-size: 12px; color: var(--muted); }
+.lv { margin-left: auto; font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 999px; white-space: nowrap; box-shadow: inset 0 0 0 1.5px currentColor; }
+.lv.doubtful { color: var(--bad); }
+.lv.check { color: var(--muted); }
+.lv.confident { color: var(--good); }
+.jn > header { flex-wrap: wrap; }
 .plate { background: var(--sign); color: var(--sign-fg); font: 800 14px var(--display); padding: 2px 10px; border-radius: 4px; box-shadow: inset 0 0 0 2px var(--sign-fg), 0 0 0 1px var(--sign); }
 .blade { background: var(--sign); color: var(--sign-fg); font: 800 13px var(--display); padding: 1px 8px; border-radius: 3px; white-space: nowrap; }
 .tablewrap { overflow-x: auto; margin-bottom: 10px; }
@@ -207,6 +240,10 @@ footer { color: var(--muted); font-size: 13px; margin-top: 24px; }
 <div class="wrap">
   <h1>Junction check, Zone 1</h1>
   <p class="lede">These are the street name plates and signposts the game will put at each junction around the Post Office and Unity Road. Pick at least 5 junctions you know well, compare them with the real streets, and mark each one.</p>
+  <section class="panel" aria-labelledby="auto">
+    <h2 id="auto">Checked automatically</h2>
+    <p>Shops, banks and offices in the map data often give their street in their address. Claude used those clues to confirm road names, name streets the map left unnamed, and flag names the addresses disagree with. {{SUMMARY}} You only need to look at the doubtful ones and a few worth a look.</p>
+  </section>
   <section class="panel" aria-labelledby="howto">
     <h2 id="howto">How to check</h2>
     <ol>
