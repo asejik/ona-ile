@@ -1,20 +1,35 @@
 /**
- * The rotating minimap (NAV-5, first part), ported from prototype v0.1.
- * The map is drawn once into an offscreen canvas; each redraw just rotates and crops it.
+ * The rotating minimap (NAV-5), ported from prototype v0.1.
+ * The map is drawn once into an offscreen canvas; each redraw just rotates and crops it, then writes the
+ * names of nearby roads and the markers on top in screen space, so text stays upright.
  * Redraws are capped at 20 a second (DESIGN.md P-3).
  */
 import type { Warden } from '../sim/wardens';
 import type { Island } from '../world/props';
 import type { Zone } from '../world/zone';
+import { drawMark, drawRoadLabel, labelSpots, type Box, type MapMark } from './mapdraw';
 
 /** Metres shown from the centre to the edge. */
 const RANGE = 200;
 /** Pixels per metre in the offscreen map. */
 const PPM = 1.2;
 const MIN_INTERVAL = 1 / 20;
+/** At most this many road names at once, so the small map stays readable. */
+const MAX_LABELS = 3;
+/** Label size in CSS pixels. */
+const LABEL_CSS_PX = 8.5;
+
+/** The small map shortens suffixes so names fit: "Sulu Gambari Rd". */
+export function shortName(name: string): string {
+  return name
+    .replace(/ Road$/, ' Rd')
+    .replace(/ Street$/, ' St')
+    .replace(/ Close$/, ' Cl');
+}
 
 export interface Minimap {
-  draw(player: { x: number; y: number; h: number }, wardens: Warden[], dt: number): void;
+  /** Marks: waiting passengers, the drop-off and notebook places; off-map ones stick to the rim. */
+  draw(player: { x: number; y: number; h: number }, wardens: Warden[], dt: number, marks?: MapMark[]): void;
 }
 
 export function createMinimap(
@@ -71,9 +86,10 @@ export function createMinimap(
     }
   }
 
+  const spots = labelSpots(zone, 90);
   let since = Infinity;
   return {
-    draw(p, wardens, dt) {
+    draw(p, wardens, dt, marks = []) {
       since += dt;
       if (since < MIN_INTERVAL) return;
       since = 0;
@@ -114,6 +130,51 @@ export function createMinimap(
         ctx.stroke();
       }
       ctx.restore();
+
+      // Screen position of a world point: heading up, so the world turns by (h - 90°).
+      const rot = p.h - Math.PI / 2;
+      const cos = Math.cos(rot);
+      const sin = Math.sin(rot);
+      const toScreen = (x: number, y: number) => {
+        const lx = x - p.x;
+        const ly = -(y - p.y);
+        return { sx: R + (lx * cos - ly * sin) * s, sy: R + (lx * sin + ly * cos) * s };
+      };
+      const cssW = canvas.getBoundingClientRect().width || W;
+      const px = (LABEL_CSS_PX * W) / cssW;
+      // Markers first claim their space; passengers and the drop-off stay on the rim when off the map.
+      const size = (14 * W) / cssW;
+      const placed: Box[] = [];
+      const shown: { kind: MapMark['kind']; sx: number; sy: number }[] = [];
+      for (const m of marks) {
+        let { sx, sy } = toScreen(m.x, m.y);
+        const dx = sx - R;
+        const dy = sy - R;
+        const d = Math.hypot(dx, dy);
+        const edge = R - size * 0.8;
+        if (d > edge) {
+          if (m.kind === 'notebook' || m.kind === 'place') continue;
+          sx = R + (dx / d) * edge;
+          sy = R + (dy / d) * edge;
+        }
+        shown.push({ kind: m.kind, sx, sy });
+        placed.push({ x0: sx - size / 2, y0: sy - size / 2, x1: sx + size / 2, y1: sy + size / 2 });
+      }
+      // Names of the nearest roads, one label per road, along the road, inside the circle, never overlapping.
+      const inside = (x0: number, y0: number, x1: number, y1: number) =>
+        Math.hypot(x0 - R, y0 - R) < R - 4 && Math.hypot(x1 - R, y1 - R) < R - 4;
+      const named = new Set<string>();
+      const near = spots
+        .map((l) => ({ l, d: Math.hypot(l.x - p.x, l.y - p.y) }))
+        .filter((o) => o.d < RANGE * 0.75)
+        .sort((a, b) => a.d - b.d);
+      for (const { l } of near) {
+        if (named.size >= MAX_LABELS) break;
+        if (named.has(l.name)) continue;
+        const { sx, sy } = toScreen(l.x, l.y);
+        if (drawRoadLabel(ctx, shortName(l.name), sx, sy, rot - l.a, px, placed, inside)) named.add(l.name);
+      }
+      for (const m of shown) drawMark(ctx, m.kind, m.sx, m.sy, size);
 
       // The player: a keke-yellow arrow with an ink outline, always pointing up.
       ctx.save();

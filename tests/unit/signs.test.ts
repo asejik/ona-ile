@@ -67,3 +67,12 @@ describe('sign posts (NAV-2, NAV-3)', () => {
     expect(signText('Obo Market')).toBe('Obo Market');
   });
 });
+
+describe('minimap names', async () => {
+  const { shortName } = await import('../../src/ui/minimap');
+  it('shortens suffixes so names fit the small map', () => {
+    expect(shortName('Sulu Gambari Road')).toBe('Sulu Gambari Rd');
+    expect(shortName('Mubo Street')).toBe('Mubo St');
+    expect(shortName('Ahmadu Bello Way')).toBe('Ahmadu Bello Way');
+  });
+});
