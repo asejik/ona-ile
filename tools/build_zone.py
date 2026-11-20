@@ -14,9 +14,11 @@ The OSM export can be downloaded with:
 Map data (c) OpenStreetMap contributors, ODbL 1.0. https://www.openstreetmap.org/copyright
 The game must show that credit wherever this data is used.
 """
+import difflib
 import json
 import math
 import random
+import re
 import sys
 from collections import defaultdict
 
@@ -81,6 +83,129 @@ NOT_HERE = 60.0  # a place this close to the junction is where you already are, 
 CLUSTER = 25.0  # junction points closer than this are one junction
 CLEAR = 30.0  # an exit's direction is measured where the road is this far from the junction centre
 MERGE_DEG = 35  # exits closer in direction than this are the same way out
+
+
+# ---- Street-name check from addresses -----------------------------------
+# Shops, banks and offices often carry their street in an address ("Union Bank, Challenge Road, ...").
+# Those clues confirm or dispute the names on OSM road lines, and name streets OSM left unnamed.
+CLUE_NEAR = 60.0  # a clue this close to a road can be about that road (addresses sit back from it)
+INFER_NEAR = 30.0  # an unnamed street takes a name only from clues this close
+SAME_NAME = 0.82  # spelling similarity above which two names are the same street
+SUFFIX = {"rd": "Road", "road": "Road", "way": "Way", "st": "Street", "street": "Street", "close": "Close",
+          "avenue": "Avenue", "ave": "Avenue", "crescent": "Crescent", "lane": "Lane"}
+STREET_RE = re.compile(
+    r"^(?:no\.?\s*\d+[a-z]?\s+|[a-z]?\d+[a-z]?\s+)?([a-z][a-z'\-]*(?:\s+[a-z][a-z'\-]*){0,3})\s+"
+    r"(rd|road|way|st|street|close|avenue|ave|crescent|lane)\.?$", re.I)
+
+
+def street_clues(els, proj, nodes):
+    """(street name, x, y) for every address-like mention of a street on a non-road feature."""
+    out = []
+    for e in els:
+        t = e.get("tags", {})
+        if not t or t.get("highway"):
+            continue
+        texts = [t.get("addr:street", "")]
+        for k in ("name", "addr:full", "description"):
+            texts += [p for p in t.get(k, "").replace(";", ",").split(",")]
+        found = set()
+        for part in texts:
+            part = part.strip()
+            if not part or "+" in part:
+                continue
+            m = STREET_RE.match(part)
+            if not m:
+                continue
+            words = m.group(1)
+            if re.search(r"\b(opp|opposite|beside|behind|near|along|by)\b", words, re.I):
+                continue
+            found.add(" ".join(w[:1].upper() + w[1:] for w in words.split()) + " " + SUFFIX[m.group(2).lower()])
+        if not found:
+            continue
+        if e["type"] == "node":
+            x, y = proj(e)
+        else:
+            ps = [proj(nodes[n]) for n in e.get("nodes", []) if n in nodes]
+            if not ps:
+                continue
+            x, y = sum(p[0] for p in ps) / len(ps), sum(p[1] for p in ps) / len(ps)
+        out += [(n, x, y) for n in sorted(found)]
+    return out
+
+
+def name_key(name):
+    return re.sub(r"[^a-z ]", "", name.lower().replace("'", "")).strip()
+
+
+def same_street(a, b):
+    return difflib.SequenceMatcher(None, name_key(a), name_key(b)).ratio() >= SAME_NAME
+
+
+def seg_dist(px, py, a, b):
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    L = dx * dx + dy * dy
+    t = 0 if L == 0 else max(0.0, min(1.0, ((px - a[0]) * dx + (py - a[1]) * dy) / L))
+    return math.hypot(px - (a[0] + t * dx), py - (a[1] + t * dy))
+
+
+def road_dist(r, out_nodes, x, y):
+    pts = [out_nodes[i] for i in r["p"]]
+    return min(seg_dist(x, y, a, b) for a, b in zip(pts, pts[1:]))
+
+
+def check_names(roads, out_nodes, clues, owner_names):
+    """Names unnamed streets from nearby addresses (marking them "ns": "a") and returns a report per name."""
+    named = [r for r in roads if r["n"]]
+    near_named = []  # for each clue: is it explained by a named road close by?
+    for name, x, y in clues:
+        near_named.append(any(same_street(name, r["n"]) and road_dist(r, out_nodes, x, y) < CLUE_NEAR for r in named))
+
+    # Unnamed streets: a name needs 2+ agreeing clues close by that no named road already explains.
+    inferred = defaultdict(int)
+    for r in roads:
+        if r["n"] or r.get("rb"):
+            continue
+        votes = [c[0] for c, explained in zip(clues, near_named)
+                 if not explained and road_dist(r, out_nodes, c[1], c[2]) < INFER_NEAR]
+        if len(votes) < 2:
+            continue
+        best = max(votes, key=lambda v: sum(same_street(v, w) for w in votes))
+        agree = sum(same_street(best, w) for w in votes)
+        if agree >= 2 and agree * 3 >= len(votes) * 2:
+            # A spelling variant of a road OSM already names ("Emirs Road") is that road.
+            best = next((o["n"] for o in named if same_street(best, o["n"])), best)
+            r["n"] = best
+            r["ns"] = "a"
+            inferred[best] += 1
+
+    report = []
+    for name in sorted({r["n"] for r in roads if r["n"]}):
+        mine = [r for r in roads if r["n"] == name]
+        near_clues = [c for c in clues if any(road_dist(r, out_nodes, c[1], c[2]) < CLUE_NEAR for r in mine)]
+        agree = sum(same_street(name, c[0]) for c in near_clues)
+        others = defaultdict(int)
+        for c in near_clues:
+            # A clue for another street that runs close by (the main road at a corner) is no dispute.
+            if not same_street(name, c[0]) and not any(
+                    r2["n"] != name and same_street(c[0], r2["n"]) and road_dist(r2, out_nodes, c[1], c[2]) < CLUE_NEAR
+                    for r2 in roads if r2["n"]):
+                others[c[0]] += 1
+        rival, rival_n = max(others.items(), key=lambda kv: kv[1]) if others else ("", 0)
+        if name in owner_names:
+            verdict = "owner"
+        elif name in inferred and not any(r.get("ns") is None for r in mine):
+            verdict = "inferred"
+        elif rival_n >= 3 and rival_n >= 2 * agree:
+            verdict = "disputed"
+        elif agree:
+            verdict = "confirmed"
+        else:
+            verdict = "unconfirmed"
+        entry = {"name": name, "verdict": verdict, "agree": agree}
+        if rival_n:
+            entry["rival"], entry["rivalCount"] = rival, rival_n
+        report.append(entry)
+    return report
 
 
 def build_junctions(out_nodes, roads, roundabouts, targets):
@@ -290,6 +415,11 @@ def main(src, dst, overrides_path=None):
             r = sum(math.hypot(p[0] - cx, p[1] - cy) for p in pts) / len(pts)
             roundabouts.append({"x": round(cx, 1), "y": round(cy, 1), "r": round(r, 1), "ids": set(ids)})
 
+    name_report = None
+    if overrides_path:
+        owner_names = set(name_fixes.values())
+        name_report = check_names(roads, out_nodes, street_clues(els, proj, nodes), owner_names)
+
     # name roundabouts from the roads that touch them
     for rb in roundabouts:
         names = []
@@ -439,6 +569,9 @@ def main(src, dst, overrides_path=None):
     }
     if junctions is not None:
         zone["junctions"] = junctions
+    if name_report is not None:
+        # How sure each street name is; read by the junction review page, not by the game.
+        zone["nameCheck"] = name_report
     # .json output is the rebuild's format; .js keeps the prototype's window.ZONE file.
     with open(dst, "w", encoding="utf-8", newline="\n") as f:
         if dst.endswith(".json"):
