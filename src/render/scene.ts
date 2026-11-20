@@ -4,6 +4,7 @@ import type { VehicleState } from '../sim/vehicle';
 import type { Warden } from '../sim/wardens';
 import type { Island, Kiosk, Tree } from '../world/props';
 import type { RoadNetwork } from '../world/roads';
+import type { SignPost } from '../world/signs';
 import type { Zone } from '../world/zone';
 import {
   VERTEX_COLOURS,
@@ -14,6 +15,7 @@ import {
   wardenModel,
   type WardenModel,
 } from './models';
+import { buildSignPosts } from './signs';
 import { buildBuildings, buildGround, buildIslands, buildRoads, buildTrees } from './world';
 
 const HAZE = '#E6CFA8';
@@ -27,6 +29,8 @@ export interface SceneWorld {
   islands: Island[];
   wardens: Warden[];
   npcs: Npc[];
+  /** Street name plates and signposts (NAV-2, NAV-3). */
+  signPosts: SignPost[];
 }
 
 export interface SceneOptions {
@@ -91,6 +95,7 @@ export function createScene(
   scene.add(...buildBuildings(zone, world.kiosks));
   scene.add(...buildTrees(world.trees));
   scene.add(...buildIslands(world.islands));
+  scene.add(...buildSignPosts(world.signPosts));
 
   // The player's keke, with Ayo at the handlebar.
   const keke = new THREE.Group();
