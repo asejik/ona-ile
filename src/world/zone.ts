@@ -18,6 +18,8 @@ export interface ZoneRoad {
   rb?: 1;
   /** 1 when the road is one-way in drawing order. */
   ow?: 1;
+  /** 'a' when OSM left the street unnamed and the name comes from nearby addresses (build_zone.py). */
+  ns?: 'a';
 }
 
 export interface ZoneRoundabout {
