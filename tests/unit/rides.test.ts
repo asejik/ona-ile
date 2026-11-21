@@ -222,7 +222,7 @@ describe('saves (SYS-1)', () => {
     const old: Record<string, unknown> = { ...newGame(3), money: 900 };
     delete old.damage;
     s.setItem(SAVE_KEY, JSON.stringify({ schemaVersion: 2, updatedAt: '2026-11-20T00:00:00Z', state: old }));
-    expect(createSaveStore(s, 3).load()).toEqual({ ...newGame(3), money: 900, damage: 0 });
+    expect(createSaveStore(s, 3).load()).toEqual({ ...newGame(3), money: 900, damage: 0, best: {} });
   });
 
   it("migrates prototype v0.1's save once, then removes the old key", () => {
@@ -260,6 +260,9 @@ describe('saves (SYS-1)', () => {
     expect(repairState({ damage: 250 }, 2).damage).toBe(100);
     expect(repairState({ damage: 12.345 }, 2).damage).toBe(12.3);
     expect(repairState({ damage: 'dented' }, 2).damage).toBe(0);
+    expect(repairState({ best: { 'po-sadiku': 83.44, 'bad id!': 5, x: -1, y: 'fast' } }, 2).best).toEqual({
+      'po-sadiku': 83.4,
+    });
     const s = store();
     s.setItem(SAVE_KEY, 'not json');
     expect(createSaveStore(s, 3).load()).toBeNull();

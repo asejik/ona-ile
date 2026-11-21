@@ -39,10 +39,21 @@ import {
   type WardenEvent,
 } from './sim/wardens';
 import type { SaveStore } from './platform/save';
+import {
+  clock,
+  finishTime,
+  medalFor,
+  medalTimes,
+  startRun,
+  stepRun,
+  type Medal,
+  type Run,
+} from './sim/challenges';
 import type { PotholeHit } from './sim/potholes';
 import type { Wear } from './sim/vehicle';
 import {
   BREAKDOWN,
+  CHALLENGE_LINES,
   INTRO,
   LATI,
   LINES,
@@ -54,10 +65,12 @@ import {
   passengerWho,
   pick,
   type Passenger,
+  type Who,
 } from './story/content';
 import type { Sound } from './ui/audio';
 import type { DialogButton, Dialogs } from './ui/dialog';
 import type { TrackerState } from './ui/tracker';
+import type { ChallengePlace } from './world/challenges';
 import type { RoadNetwork } from './world/roads';
 import { routeFrom, type Route } from './world/routing';
 import { atSpot, type Spot } from './world/spots';
@@ -74,8 +87,10 @@ export interface RideLoop {
   readonly photoTarget: number | null;
   /** How the keke drives at its current damage (DMG-3). */
   readonly wear: Wear;
-  /** True when the keke has broken down and won't go (DMG-3). */
-  readonly broken: boolean;
+  /** True when the keke won't go: broken down (DMG-3), or held for a challenge countdown (TIME-1). */
+  readonly held: boolean;
+  /** The timed challenge being driven, or null. */
+  readonly run: { id: string; t: number; countdown: number } | null;
   begin(fresh: boolean): void;
   update(dt: number, player: { x: number; y: number; h: number; v: number }, onRoad: boolean): void;
   /** A collision at `impact` m/s: the passenger's comfort and the keke's damage (DMG-1). */
@@ -107,6 +122,8 @@ export interface RideDeps {
   flash: () => void;
   /** Oga Lati's workshop stop (DMG-4), or null if the zone has no room for one. */
   workshop: Spot | null;
+  /** Timed challenges (TIME-1): their boards and finishes. */
+  challenges: ChallengePlace[];
 }
 
 export function createRideLoop(d: RideDeps): RideLoop {
@@ -117,6 +134,10 @@ export function createRideLoop(d: RideDeps): RideLoop {
   let route: Route | null = null;
   let routeTimer = 0;
   let photoTarget: number | null = null;
+  /** The timed challenge being driven (TIME-1). */
+  let run: (Run & { place: ChallengePlace }) | null = null;
+  /** Boards whose card has shown, until the keke drives away from them. */
+  const boardShown = new Set<string>();
   /** Set once the repair card has shown, cleared once the keke drives away from the workshop. */
   let workshopBlocked = false;
   const who = (p: Passenger) => passengerWho(p, PASSENGERS.indexOf(p));
@@ -259,6 +280,7 @@ export function createRideLoop(d: RideDeps): RideLoop {
   const replace = (next: GameState) => {
     offers = [];
     trip = null;
+    run = null;
     route = null;
     syncWaiting();
     d.markers.setRider(null);
@@ -315,6 +337,10 @@ export function createRideLoop(d: RideDeps): RideLoop {
   /** DMG-3: the keke has died. Any passenger leaves, and Oga Lati's boys tow it to his workshop. */
   const breakDown = (player: { x: number; y: number; h: number; v: number }) => {
     player.v = 0;
+    if (run) {
+      endRun();
+      d.dialogs.toast(CHALLENGE_LINES.broken, 'bad', 3600);
+    }
     if (trip) {
       const t = trip;
       trip = null;
@@ -345,6 +371,134 @@ export function createRideLoop(d: RideDeps): RideLoop {
     });
   };
 
+  // ---- Timed challenges (TIME-1) ----
+  type Player = { x: number; y: number; h: number; v: number };
+  const challengeWho = (p: ChallengePlace): Who => ({
+    name: 'Timed challenge',
+    role: `${p.from} to ${p.to}`,
+    colour: '#8A6508',
+    initial: '⏱',
+  });
+  const medalRows = (p: ChallengePlace) => {
+    const m = medalTimes(p.d);
+    const best = state.best[p.id];
+    return [
+      { label: 'Gold', value: clock(m.gold) },
+      { label: 'Silver', value: clock(m.silver) },
+      { label: 'Bronze (time limit)', value: clock(m.bronze) },
+      { label: 'Your best', value: best === undefined ? 'No run yet' : clock(best, true) },
+    ];
+  };
+  function endRun() {
+    run = null;
+    route = null;
+    d.markers.setDestination(null);
+    d.markers.setArrowTarget(null);
+  }
+  const beginRun = (p: ChallengePlace, player: Player) => {
+    Object.assign(player, { x: p.start.stopX, y: p.start.stopY, h: p.start.heading, v: 0 });
+    boardShown.add(p.id);
+    run = { ...startRun(p.id, medalTimes(p.d)), place: p };
+    route = null;
+    routeTimer = 0;
+    d.markers.setDestination(p.finish);
+    d.dialogs.toast(String(Math.ceil(run.countdown)), '', 900);
+  };
+  const openChallenge = (p: ChallengePlace, player: Player) => {
+    boardShown.add(p.id);
+    player.v = 0;
+    d.dialogs.show({
+      who: challengeWho(p),
+      text: `Drive to ${p.to} as fast as you can and stop in the green ring. Get there inside the bronze time to finish.`,
+      rows: [{ label: 'Distance by road', value: `${Math.round(p.d)} m` }, ...medalRows(p)],
+      buttons: [
+        { label: 'Start', onClick: () => beginRun(p, player) },
+        { label: 'Not now', kind: 'outline' },
+      ],
+    });
+  };
+  const afterRun = (p: ChallengePlace, player: Player) => [
+    { label: 'Keep driving' },
+    { label: 'Try again', kind: 'outline' as const, onClick: () => beginRun(p, player) },
+  ];
+  const finishRun = (player: Player) => {
+    const r = run!;
+    const p = r.place;
+    player.v = 0;
+    endRun();
+    const t = finishTime(r.t);
+    const medal: Medal | null = medalFor(t, r.medals);
+    const prev = state.best[p.id];
+    const record = prev === undefined || t < prev;
+    if (record) {
+      state.best[p.id] = t;
+      save();
+    }
+    d.sound.coin();
+    d.dialogs.show({
+      who: challengeWho(p),
+      text: medal ? CHALLENGE_LINES[medal] : CHALLENGE_LINES.timeup,
+      ...(record && prev !== undefined
+        ? { note: `New best time. Your old best was ${clock(prev, true)}.` }
+        : {}),
+      rows: [
+        { label: 'Your time', value: clock(t, true), total: true },
+        { label: 'Medal', value: medal ? medal[0]!.toUpperCase() + medal.slice(1) : 'None' },
+        ...medalRows(p),
+      ],
+      buttons: afterRun(p, player),
+    });
+  };
+  const timeUp = (player: Player) => {
+    const p = run!.place;
+    endRun();
+    d.dialogs.show({
+      who: challengeWho(p),
+      text: CHALLENGE_LINES.timeup,
+      rows: medalRows(p),
+      buttons: afterRun(p, player),
+    });
+  };
+  /** Runs the challenge clock and guidance. Returns true while a challenge is being driven. */
+  const stepChallenge = (dt: number, player: Player): boolean => {
+    if (!run) return false;
+    const before = Math.ceil(run.countdown);
+    const e = stepRun(run, dt);
+    if (run.countdown > 0 && Math.ceil(run.countdown) !== before)
+      d.dialogs.toast(String(Math.ceil(run.countdown)), '', 900);
+    if (e === 'go') d.dialogs.toast(CHALLENGE_LINES.go, 'good', 1200);
+    if (e === 'timeup') {
+      timeUp(player);
+      return true;
+    }
+    routeTimer -= dt;
+    if (routeTimer <= 0 || !route) {
+      route = routeFrom(run.place.tree, d.roads, d.zone.nodes, player.x, player.y);
+      routeTimer = 0.25;
+    }
+    d.markers.setArrowTarget(pointAlong(route, 18));
+    if (run.countdown === 0 && atSpot(run.place.finish, player.x, player.y, Math.abs(player.v)))
+      finishRun(player);
+    return true;
+  };
+  /** Opens a board's card when the keke stops at it with no passenger aboard. True when a card opened. */
+  const checkBoards = (player: Player): boolean => {
+    for (const p of d.challenges) {
+      const s = p.start;
+      if (boardShown.has(p.id) && Math.hypot(player.x - s.stopX, player.y - s.stopY) > 11)
+        boardShown.delete(p.id);
+      if (boardShown.has(p.id) || !atSpot(s, player.x, player.y, Math.abs(player.v))) continue;
+      if (trip) {
+        boardShown.add(p.id);
+        d.dialogs.toast(CHALLENGE_LINES.busy, '', 3000);
+        return false;
+      }
+      openChallenge(p, player);
+      return true;
+    }
+    return false;
+  };
+
   const loop: RideLoop = {
     get state() {
       return state;
@@ -361,8 +515,11 @@ export function createRideLoop(d: RideDeps): RideLoop {
     get wear() {
       return handling(state.damage);
     },
-    get broken() {
-      return state.damage >= BROKEN;
+    get held() {
+      return state.damage >= BROKEN || (run !== null && run.countdown > 0);
+    },
+    get run() {
+      return run && { id: run.id, t: run.t, countdown: run.countdown };
     },
     begin(fresh) {
       if (fresh) {
@@ -392,13 +549,15 @@ export function createRideLoop(d: RideDeps): RideLoop {
       if (w) {
         if (workshopBlocked && Math.hypot(player.x - w.stopX, player.y - w.stopY) > 11)
           workshopBlocked = false;
-        if (!trip && !workshopBlocked && state.damage >= 1 && atSpot(w, player.x, player.y, speed)) {
+        if (!trip && !run && !workshopBlocked && state.damage >= 1 && atSpot(w, player.x, player.y, speed)) {
           player.v = 0;
           openRepair();
           return;
         }
       }
-      if (trip) {
+      if (stepChallenge(dt, player) || checkBoards(player)) {
+        // A challenge is on, or its card just opened: no pickups until it is over.
+      } else if (trip) {
         if (stepTrip(trip, dt, onRoad, speed, d.rand)) {
           if (trip.pax.special === 'bisi' && trip.chatted === 1 && !state.bisiDone) {
             d.dialogs.toast(LINES.bisi, 'good', 5200, 'Mama Bisi');
@@ -503,7 +662,15 @@ export function createRideLoop(d: RideDeps): RideLoop {
     },
     tracker(player) {
       let ride: TrackerState['ride'];
-      if (trip) {
+      if (run) {
+        ride = {
+          kind: 'challenge',
+          dest: run.place.to,
+          metres: route?.len ?? run.place.d,
+          secondsLeft: run.medals.bronze - run.t,
+          countdown: run.countdown,
+        };
+      } else if (trip) {
         ride = {
           kind: 'ride',
           pax: trip.pax.name,

@@ -153,6 +153,23 @@ export const BREAKDOWN = {
   ],
 };
 
+/** Timed challenges in the Prologue (TIME-1). `from` and `to` are spot names in the zone. */
+export const CHALLENGES = [
+  { id: 'po-sadiku', from: 'Post Office Terminus', to: 'Sadiku Hospital' },
+  { id: 'unity-court', from: 'Unity Road Bus Park', to: 'High Court' },
+  { id: 'obo-gpo', from: 'Obo Market', to: 'General Post Office' },
+] as const;
+
+export const CHALLENGE_LINES = {
+  go: 'Go!',
+  timeup: "Time up. The road will still be here tomorrow. Try again when you're ready.",
+  gold: 'Gold! Even Baba never did it that fast. Do not tell him I said so.',
+  silver: 'Silver. Fast and clean. A little more and the gold is yours.',
+  bronze: 'Bronze. You made it inside the time. The road is learning you.',
+  busy: 'Finish this ride first. The challenge will wait for you.',
+  broken: 'The keke broke down, so the run is over.',
+};
+
 export const STAGE_DONE: { who: Who; text: string }[] = [
   { who: CAST.mama, text: '₦5,000! Ehen. Maybe the Lagos brain is learning.' },
   { who: CAST.baba, text: 'Well done, my child. Tomorrow I will show you where the old 504 is sleeping.' },
