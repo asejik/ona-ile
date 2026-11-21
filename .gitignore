@@ -40,3 +40,9 @@ desktop.ini
 
 # Claude Code personal settings
 .claude/settings.local.json
+
+# Private planning docs and agent instructions: kept in the private asejik/ona-ile-docs repo,
+# checked out in place through .private.git (see that repo).
+docs/
+CLAUDE.md
+.private.git/

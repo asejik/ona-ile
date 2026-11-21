@@ -1,7 +1,10 @@
 Copyright (c) 2026 Sogo Ayenigba. All rights reserved.
 
-This repository is private. Its code, art, story, dialogue, music and other
-content may not be copied, distributed or used without written permission.
+This repository is public so that its source can be read. That does not make it
+open source: no licence is granted to copy, modify, distribute or use its code,
+art, story, dialogue, music or other content, in whole or in part, without
+written permission.
 
-Exception: map data derived from OpenStreetMap is licensed under the Open
-Database License (ODbL) 1.0. See NOTICE.md.
+Exceptions, under their own licences (see NOTICE.md):
+- map data derived from OpenStreetMap: Open Database License (ODbL) 1.0;
+- height data from the Copernicus DEM GLO-30, with its required attribution.
