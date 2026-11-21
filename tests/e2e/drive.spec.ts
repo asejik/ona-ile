@@ -12,7 +12,7 @@ test('the map loads and the keke drives', async ({ page, isMobile }) => {
 
   await startGame(page);
   await expect(page.locator('#hud')).toBeVisible();
-  await expect(page.locator('.credit')).toContainText('OpenStreetMap contributors');
+  await expect(page.locator('#hud .credit')).toContainText('OpenStreetMap contributors');
 
   const start = await page.evaluate(() => ({ ...window.__ona.player! }));
   // Software rendering in CI is slow, so hold the pedal until the keke has moved rather than for a fixed time.
