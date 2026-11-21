@@ -7,6 +7,7 @@
  */
 import * as THREE from 'three';
 import { signText, type SignPost } from '../world/signs';
+import type { Terrain } from '../world/terrain';
 
 const SIGN_GREEN = '#0E5A36';
 const SIGN_WHITE = '#FFFFFF';
@@ -172,7 +173,7 @@ class Boards {
 }
 
 /** Builds the plates, blades and poles. World (x, y) maps to Three.js (x, -z). */
-export function buildSignPosts(posts: SignPost[]): THREE.Object3D[] {
+export function buildSignPosts(posts: SignPost[], terrain: Terrain): THREE.Object3D[] {
   if (posts.length === 0) return [];
   const labels: { text: string; kind: LabelKind }[] = [];
   for (const p of posts) {
@@ -188,7 +189,8 @@ export function buildSignPosts(posts: SignPost[]): THREE.Object3D[] {
   for (const p of posts) {
     const px = p.x;
     const pz = -p.y;
-    let y = BLADE_LOW;
+    const base = terrain.heightAt(p.x, p.y);
+    let y = base + BLADE_LOW;
     // Blades low, so the tip points down the road; plates above, turned along their roads.
     for (const b of p.blades) {
       const text = signText(b.to);
@@ -219,7 +221,7 @@ export function buildSignPosts(posts: SignPost[]): THREE.Object3D[] {
       boards.add(px, y, pz, ux, uz, PLATE_H * s.aspect, PLATE_H, s, s, PLATE_HALF);
       y += STEP;
     }
-    poleTops.push(y - STEP + 0.45);
+    poleTops.push(y - STEP + 0.45 - base);
   }
 
   const signs = boards.mesh(new THREE.MeshLambertMaterial({ map: texture, alphaTest: 0.5 }));
@@ -234,7 +236,8 @@ export function buildSignPosts(posts: SignPost[]): THREE.Object3D[] {
   poles.name = 'sign-poles';
   const m = new THREE.Matrix4();
   posts.forEach((p, i) => {
-    m.makeScale(1, poleTops[i]!, 1).setPosition(p.x, 0, -p.y);
+    // From a little below the ground, so a pole on a slope never floats.
+    m.makeScale(1, poleTops[i]! + 0.3, 1).setPosition(p.x, terrain.heightAt(p.x, p.y) - 0.3, -p.y);
     poles.setMatrixAt(i, m);
   });
   poles.instanceMatrix.needsUpdate = true;

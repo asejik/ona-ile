@@ -6,6 +6,7 @@ import * as THREE from 'three';
 import type { Island, Kiosk, Tree } from '../world/props';
 import { KIOSK_COLOURS, TREE_GREENS } from '../world/props';
 import type { RoadNetwork } from '../world/roads';
+import type { Terrain } from '../world/terrain';
 import type { Zone } from '../world/zone';
 
 type Pt = readonly [number, number];
@@ -15,6 +16,37 @@ interface Buffers {
 }
 
 const col = (hex: string) => new THREE.Color(hex);
+const UP = new THREE.Vector3(0, 1, 0);
+/** A straight road piece may stray this far (metres) from the ground under it before it is split. */
+const ROAD_FIT = 0.01;
+/** The ground is cut into square tiles of this many grid cells, so tiles off screen aren't drawn. */
+const GROUND_TILE = 16;
+
+/**
+ * Splits road segments where the ground bends under them, so the road follows the hills without cutting
+ * every segment into small pieces (which would blow the triangle budget). Flat stretches stay whole.
+ */
+function followGround(pts: Pt[], terrain: Terrain): Pt[] {
+  if (!terrain.grid || pts.length < 2) return pts;
+  const h = (p: Pt) => terrain.heightAt(p[0], p[1]);
+  const out: Pt[] = [pts[0]!];
+  const split = (a: Pt, b: Pt, depth: number) => {
+    const ha = h(a);
+    const hb = h(b);
+    let err = 0;
+    for (const k of [0.25, 0.5, 0.75]) {
+      const p: Pt = [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+      err = Math.max(err, Math.abs(h(p) - (ha + (hb - ha) * k)));
+    }
+    if (err > ROAD_FIT && depth < 6 && Math.hypot(b[0] - a[0], b[1] - a[1]) > 2) {
+      const m: Pt = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      split(a, m, depth + 1);
+      split(m, b, depth + 1);
+    } else out.push(b);
+  };
+  for (let i = 1; i < pts.length; i++) split(pts[i - 1]!, pts[i]!, 0);
+  return out;
+}
 
 function meshFrom(t: Buffers, material: THREE.Material, upNormals = false): THREE.Mesh {
   const g = new THREE.BufferGeometry();
@@ -29,8 +61,8 @@ function meshFrom(t: Buffers, material: THREE.Material, upNormals = false): THRE
   return new THREE.Mesh(g, material);
 }
 
-/** Red laterite earth with dusty grass patches, as a repeating canvas texture. */
-export function buildGround(zone: Zone, rand: () => number): THREE.Mesh {
+/** Red laterite earth with dusty grass patches, as a repeating canvas texture, over the zone's hills. */
+export function buildGround(zone: Zone, rand: () => number, terrain: Terrain): THREE.Object3D[] {
   const c = document.createElement('canvas');
   c.width = c.height = 256;
   const g = c.getContext('2d')!;
@@ -50,17 +82,70 @@ export function buildGround(zone: Zone, rand: () => number): THREE.Mesh {
   const [x0, y0, x1, y1] = zone.bounds;
   const w = x1 - x0 + 500;
   const h = y1 - y0 + 500;
-  tex.repeat.set(w / 34, h / 34);
   tex.anisotropy = 4;
+  const grid = terrain.grid;
+  if (grid) {
+    // The height grid as tiles of GROUND_TILE cells, each cell split along the same diagonal
+    // Terrain.heightAt uses. Tiles off screen are skipped by the renderer.
+    const material = new THREE.MeshLambertMaterial({ map: tex });
+    const H = (i: number, j: number) =>
+      grid.h[Math.min(grid.rows - 1, Math.max(0, j)) * grid.cols + Math.min(grid.cols - 1, Math.max(0, i))]!;
+    const tiles: THREE.Object3D[] = [];
+    for (let tj = 0; tj < grid.rows - 1; tj += GROUND_TILE) {
+      for (let ti = 0; ti < grid.cols - 1; ti += GROUND_TILE) {
+        const i1 = Math.min(grid.cols - 1, ti + GROUND_TILE);
+        const j1 = Math.min(grid.rows - 1, tj + GROUND_TILE);
+        const w0 = i1 - ti + 1;
+        const pos: number[] = [];
+        const nor: number[] = [];
+        const uv: number[] = [];
+        const idx: number[] = [];
+        for (let j = tj; j <= j1; j++) {
+          for (let i = ti; i <= i1; i++) {
+            const x = grid.x0 + i * grid.step;
+            const y = grid.y0 + j * grid.step;
+            pos.push(x, H(i, j), -y);
+            // Normals from the whole grid, so tiles meet without a lighting seam. Three.js z is -y.
+            const dx = (H(i + 1, j) - H(i - 1, j)) / (2 * grid.step);
+            const dy = (H(i, j + 1) - H(i, j - 1)) / (2 * grid.step);
+            const l = Math.hypot(dx, dy, 1);
+            nor.push(-dx / l, 1 / l, dy / l);
+            uv.push(x / 34, y / 34);
+          }
+        }
+        for (let j = 0; j < j1 - tj; j++) {
+          for (let i = 0; i < i1 - ti; i++) {
+            const a = j * w0 + i;
+            const b = a + 1;
+            const c2 = a + w0;
+            const d = c2 + 1;
+            // Counter-clockwise seen from above (world y north is Three.js -z).
+            idx.push(a, b, d, a, d, c2);
+          }
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+        geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+        geo.setIndex(idx);
+        geo.computeBoundingSphere();
+        const tile = new THREE.Mesh(geo, material);
+        tile.receiveShadow = true;
+        tiles.push(tile);
+      }
+    }
+    return tiles;
+  }
+  tex.repeat.set(w / 34, h / 34);
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshLambertMaterial({ map: tex }));
   ground.rotation.x = -Math.PI / 2;
   ground.position.set((x0 + x1) / 2, 0, -(y0 + y1) / 2);
   ground.receiveShadow = true;
-  return ground;
+  return [ground];
 }
 
 /** Road ribbons in layers: dusty shoulders, minor and major asphalt, white centre dashes on major roads. */
-export function buildRoads(zone: Zone, roads: RoadNetwork): THREE.Mesh[] {
+export function buildRoads(zone: Zone, roads: RoadNetwork, terrain: Terrain): THREE.Mesh[] {
   const layers = {
     sh: { p: [], c: [] },
     mn: { p: [], c: [] },
@@ -71,8 +156,10 @@ export function buildRoads(zone: Zone, roads: RoadNetwork): THREE.Mesh[] {
   const cMin = col('#6A625A');
   const cSh = col('#A87D58');
   const cDa = col('#EFE7D3');
+  // Every vertex sits `y` above the ground at its own spot, so the roads follow the hills.
+  const g = (p: Pt) => terrain.heightAt(p[0], p[1]);
   const tri = (t: Buffers, c: THREE.Color, a: Pt, b: Pt, d: Pt, y: number) => {
-    t.p.push(a[0], y, -a[1], b[0], y, -b[1], d[0], y, -d[1]);
+    t.p.push(a[0], y + g(a), -a[1], b[0], y + g(b), -b[1], d[0], y + g(d), -d[1]);
     for (let k = 0; k < 3; k++) t.c.push(c.r, c.g, c.b);
   };
   const ribbon = (t: Buffers, pts: Pt[], hw: number, y: number, c: THREE.Color) => {
@@ -151,7 +238,10 @@ export function buildRoads(zone: Zone, roads: RoadNetwork): THREE.Mesh[] {
     }
   };
   for (const r of zone.roads) {
-    const pts = r.p.map((i) => zone.nodes[i]!);
+    const pts = followGround(
+      r.p.map((i) => zone.nodes[i]!),
+      terrain,
+    );
     const hw = r.w / 2;
     const major = r.w >= 10;
     ribbon(layers.sh, pts, hw + 1.3, 0.012, cSh);
@@ -205,7 +295,7 @@ const WALLS = [
 const ROOFS = ['#9AA0A4', '#8A5236', '#6E7A82', '#B7AEA0', '#7F8B8F', '#A0643F'];
 
 /** OSM footprints extruded by storey count, with window bands, plus kiosks; grouped into 170 m chunks. */
-export function buildBuildings(zone: Zone, kiosks: Kiosk[]): THREE.Mesh[] {
+export function buildBuildings(zone: Zone, kiosks: Kiosk[], terrain: Terrain): THREE.Mesh[] {
   const walls = WALLS.map(col);
   const roofs = ROOFS.map(col);
   const win = col('#3B3F46');
@@ -240,6 +330,9 @@ export function buildBuildings(zone: Zone, kiosks: Kiosk[]): THREE.Mesh[] {
     bandsFor: (edgeLen: number) => [number, number, number][],
   ) => {
     const n = p.length / 2;
+    // On a slope the building stands on its lowest corner; the uphill side goes into the ground.
+    let base = Infinity;
+    for (let i = 0; i < n; i++) base = Math.min(base, terrain.heightAt(p[2 * i]!, p[2 * i + 1]!));
     for (let i = 0; i < n; i++) {
       const j = (i + 1) % n;
       const ax = p[2 * i]!;
@@ -250,7 +343,7 @@ export function buildBuildings(zone: Zone, kiosks: Kiosk[]): THREE.Mesh[] {
         if (y1 <= y0) continue;
         if (shade < 0) tc.copy(wall).lerp(win, 0.6);
         else tc.copy(wall).multiplyScalar(shade);
-        quad(t, tc, ax, ay, bx, by, y0, y1);
+        quad(t, tc, ax, ay, bx, by, base + (y0 === 0 ? -0.3 : y0), base + y1);
       }
     }
     const contour: THREE.Vector2[] = [];
@@ -267,7 +360,7 @@ export function buildBuildings(zone: Zone, kiosks: Kiosk[]): THREE.Mesh[] {
       let B = contour[tr[1]!]!;
       let C = contour[tr[2]!]!;
       if ((B.x - A.x) * (C.y - A.y) - (B.y - A.y) * (C.x - A.x) < 0) [B, C] = [C, B];
-      t.p.push(A.x, h, -A.y, B.x, h, -B.y, C.x, h, -C.y);
+      t.p.push(A.x, base + h, -A.y, B.x, base + h, -B.y, C.x, base + h, -C.y);
       for (let q = 0; q < 3; q++) t.c.push(roof.r, roof.g, roof.b);
     }
   };
@@ -312,7 +405,7 @@ export function buildBuildings(zone: Zone, kiosks: Kiosk[]): THREE.Mesh[] {
 }
 
 /** Neem and mango shapes: two instanced meshes (trunks, crowns) for all trees. */
-export function buildTrees(trees: Tree[]): THREE.Object3D[] {
+export function buildTrees(trees: Tree[], terrain: Terrain): THREE.Object3D[] {
   const trunkG = new THREE.CylinderGeometry(0.18, 0.26, 2.4, 6);
   trunkG.translate(0, 1.2, 0);
   const crownG = new THREE.IcosahedronGeometry(2.1, 0);
@@ -336,7 +429,7 @@ export function buildTrees(trees: Tree[]): THREE.Object3D[] {
   trees.forEach((t, i) => {
     q.setFromAxisAngle(up, t.rotation);
     s.set(t.scale, t.scale * t.stretch, t.scale);
-    p.set(t.x, 0, -t.y);
+    p.set(t.x, terrain.heightAt(t.x, t.y) - 0.1, -t.y);
     m.compose(p, q, s);
     trunks.setMatrixAt(i, m);
     crowns.setMatrixAt(i, m);
@@ -348,17 +441,22 @@ export function buildTrees(trees: Tree[]): THREE.Object3D[] {
 }
 
 /** Grass islands with a pale kerb in the middle of each roundabout. */
-export function buildIslands(islands: Island[]): THREE.Object3D[] {
+export function buildIslands(islands: Island[], terrain: Terrain): THREE.Object3D[] {
   const kerbMat = new THREE.MeshLambertMaterial({ color: '#DCD6C8' });
   const grassMat = new THREE.MeshLambertMaterial({ color: '#6F8F3A' });
   return islands.flatMap((r) => {
-    const kerb = new THREE.Mesh(
-      new THREE.CylinderGeometry(r.island + 0.35, r.island + 0.35, 0.3, 28),
-      kerbMat,
-    );
-    const grass = new THREE.Mesh(new THREE.CylinderGeometry(r.island, r.island, 0.42, 28), grassMat);
-    kerb.position.set(r.x, 0.15, -r.y);
-    grass.position.set(r.x, 0.21, -r.y);
+    // Tilted to the ground's slope, and reaching down into it so no edge floats.
+    const kerbG = new THREE.CylinderGeometry(r.island + 0.35, r.island + 0.35, 1.8, 28).translate(0, -0.6, 0);
+    const grassG = new THREE.CylinderGeometry(r.island, r.island, 1.92, 28).translate(0, -0.54, 0);
+    const kerb = new THREE.Mesh(kerbG, kerbMat);
+    const grass = new THREE.Mesh(grassG, grassMat);
+    const [nx, ny, nz] = terrain.normal(r.x, r.y);
+    const tilt = new THREE.Quaternion().setFromUnitVectors(UP, new THREE.Vector3(nx, nz, -ny));
+    const y = terrain.heightAt(r.x, r.y);
+    for (const m of [kerb, grass]) {
+      m.position.set(r.x, y, -r.y);
+      m.quaternion.copy(tilt);
+    }
     grass.receiveShadow = true;
     return [kerb, grass];
   });

@@ -14,9 +14,11 @@ The OSM export can be downloaded with:
 Map data (c) OpenStreetMap contributors, ODbL 1.0. https://www.openstreetmap.org/copyright
 The game must show that credit wherever this data is used.
 """
+import array
 import difflib
 import json
 import math
+import os
 import random
 import re
 import sys
@@ -336,6 +338,76 @@ def build_junctions(out_nodes, roads, roundabouts, targets):
     return junctions
 
 
+# ---------------- Terrain (M4c) ------------------------------------------
+DEM_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "dem", "ilorin_glo30")
+TERRAIN_STEP = 20.0  # game metres between height samples
+TERRAIN_MARGIN = 300.0  # past the zone bounds, so the edge of the ground stays in the haze
+DEM_SMOOTH = 2  # box blur radius in source cells (5 x 5 cells, about 150 m): the model includes buildings
+
+
+def load_dem(path=DEM_PATH):
+    with open(path + ".json", encoding="utf-8") as f:
+        meta = json.load(f)
+    raw = array.array("h")
+    with open(path + ".i16", "rb") as f:
+        raw.frombytes(f.read())
+    if sys.byteorder != "little":
+        raw.byteswap()
+    assert len(raw) == meta["cols"] * meta["rows"], "height file and its .json disagree"
+    return meta, raw
+
+
+def build_terrain(bounds, to_lonlat, scale, dem=None):
+    """Heights on a regular game-metre grid, smoothed, scaled like distances and measured from the lowest."""
+    meta, raw = dem or load_dem()
+    cols, rows, step = meta["cols"], meta["rows"], meta["step"]
+    x0 = math.floor((bounds[0] - TERRAIN_MARGIN) / TERRAIN_STEP) * TERRAIN_STEP
+    y0 = math.floor((bounds[1] - TERRAIN_MARGIN) / TERRAIN_STEP) * TERRAIN_STEP
+    nx = int(math.ceil((bounds[2] + TERRAIN_MARGIN - x0) / TERRAIN_STEP)) + 1
+    ny = int(math.ceil((bounds[3] + TERRAIN_MARGIN - y0) / TERRAIN_STEP)) + 1
+
+    def cell(c, r):
+        c = min(cols - 1, max(0, c))
+        r = min(rows - 1, max(0, r))
+        return raw[r * cols + c] / 10.0
+
+    cache = {}
+
+    def smooth(c, r):
+        if (c, r) not in cache:
+            k = DEM_SMOOTH
+            vals = [cell(c + i, r + j) for i in range(-k, k + 1) for j in range(-k, k + 1)]
+            cache[(c, r)] = sum(vals) / len(vals)
+        return cache[(c, r)]
+
+    def height(lon, lat):
+        fc = (lon - meta["lon0"]) / step
+        fr = (meta["lat0"] - lat) / step
+        c, r = int(math.floor(fc)), int(math.floor(fr))
+        tc, tr = fc - c, fr - r
+        top = smooth(c, r) * (1 - tc) + smooth(c + 1, r) * tc
+        bot = smooth(c, r + 1) * (1 - tc) + smooth(c + 1, r + 1) * tc
+        return top * (1 - tr) + bot * tr
+
+    hs = []
+    for j in range(ny):
+        for i in range(nx):
+            lon, lat = to_lonlat(x0 + i * TERRAIN_STEP, y0 + j * TERRAIN_STEP)
+            hs.append(height(lon, lat))
+    base = min(hs)
+    return {
+        "x0": x0,
+        "y0": y0,
+        "step": TERRAIN_STEP,
+        "cols": nx,
+        "rows": ny,
+        # Row by row from the south-west corner, in game metres above the lowest point.
+        "h": [round((h - base) * scale, 1) for h in hs],
+        "base": round(base, 1),
+        "attribution": meta["attribution"],
+    }
+
+
 # ---------------- Potholes (REAL-5) -------------------------------------
 POTHOLE_SEED = 20261121
 POTHOLE_EVERY_MINOR = 110.0  # game metres between potholes on side streets
@@ -616,6 +688,8 @@ def main(src, dst, overrides_path=None):
     if junctions is not None:
         zone["junctions"] = junctions
         zone["potholes"] = place_potholes(out_nodes, roads, roundabouts, junctions)
+        zone["terrain"] = build_terrain(
+            zone["bounds"], lambda x, y: (lon0 + x / kx, lat0 + y / ky), SCALE)
     if name_report is not None:
         # How sure each street name is; read by the junction review page, not by the game.
         zone["nameCheck"] = name_report
@@ -631,7 +705,9 @@ def main(src, dst, overrides_path=None):
             f.write(";\n")
     print(f"nodes={len(out_nodes)} roads={len(roads)} roundabouts={len(roundabouts)} "
           f"buildings={len(buildings)} (dropped {dropped} on roads) spots={len(spots)} notebook={len(notebook)}"
-          + (f" junctions={len(junctions)} potholes={len(zone['potholes'])}" if junctions is not None else ""))
+          + (f" junctions={len(junctions)} potholes={len(zone['potholes'])}"
+             f" terrain={zone['terrain']['cols']}x{zone['terrain']['rows']}"
+             f" relief={max(zone['terrain']['h'])} m" if junctions is not None else ""))
     for rb in roundabouts:
         print("  roundabout:", rb["name"], rb["x"], rb["y"], "r=", rb["r"])
 
