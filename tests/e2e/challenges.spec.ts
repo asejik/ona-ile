@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { closeCards, startGame } from './play';
 
+// Game logic is the same at any screen size, and the 3D game is slow to test without a GPU: desktop only.
+test.skip(({ isMobile }) => isMobile, 'covered by the desktop project');
+
 test('a timed challenge: stop at the board, count down, race to the finish, get a medal (TIME-1)', async ({
   page,
 }, info) => {
