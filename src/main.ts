@@ -28,6 +28,7 @@ import { circlePolygon, placeKiosks, placeTrees, roundaboutIslands, seededRandom
 import { RoadNetwork } from './world/roads';
 import { placeSignPosts } from './world/signs';
 import { buildSpots } from './world/spots';
+import { Terrain } from './world/terrain';
 import { placeWorkshop, WORKSHOP_NAME } from './world/workshop';
 import { startPose } from './world/start';
 import { loadZone } from './world/zone';
@@ -46,6 +47,8 @@ interface DebugHandle {
   /** Street name plates and signposts placed (NAV-2, NAV-3), for tests. */
   signs?: { x: number; y: number; plates: string[]; blades: string[] }[];
   wardens?: { name: string; phase: 'go' | 'stop' }[];
+  /** Ground height at a point (M4c), for tests. */
+  groundAt?: (x: number, y: number) => number;
   /** Potholes in the world (REAL-5): [x, y, radius, deep], for tests. */
   potholes?: [number, number, number, 0 | 1][];
   /** 'pending' until the remote switch and the player's choice have been checked. */
@@ -90,6 +93,7 @@ async function boot(): Promise<void> {
   // The warden signs and the ₦ coin are drawn with the display font, so make sure it has loaded.
   await document.fonts.load('800 34px "Baloo 2"').catch(() => undefined);
   const roads = new RoadNetwork(zone);
+  const terrain = new Terrain(zone.terrain);
   const rand = seededRandom(WORLD_SEED);
   const buildingsOnly = new Obstacles(zone);
   const kiosks = placeKiosks(roads, (x, y) => buildingsOnly.collide(x, y, 1.5).hit, rand);
@@ -142,7 +146,7 @@ async function boot(): Promise<void> {
     $<HTMLCanvasElement>('gl'),
     zone,
     roads,
-    { kiosks, trees, islands, wardens, npcs, signPosts, potholes: potholes.list },
+    { kiosks, trees, islands, wardens, npcs, signPosts, potholes: potholes.list, terrain },
     { lowDetail: LOW_DETAIL, reducedMotion: REDUCED_MOTION },
     rand,
   );
@@ -182,7 +186,7 @@ async function boot(): Promise<void> {
     ],
   });
   window.addEventListener('resize', () => scene.resize());
-  const markers = createMarkers(scene.three, scene.keke);
+  const markers = createMarkers(scene.three, scene.keke, terrain);
   const flashEl = $('flash');
   markers.setWorkshop(workshop);
 
@@ -264,6 +268,7 @@ async function boot(): Promise<void> {
       return c;
     },
     bounds: zone.bounds,
+    grade: (x: number, y: number, h: number) => terrain.grade(x, y, h),
   };
 
   const setPaused = (on: boolean) => {
@@ -430,6 +435,7 @@ async function boot(): Promise<void> {
     stats: scene.stats,
     traffic: npcs.length,
     potholes: potholes.list,
+    groundAt: (x: number, y: number) => terrain.heightAt(x, y),
     signs: signPosts.map((p) => ({
       x: p.x,
       y: p.y,

@@ -3,6 +3,7 @@
  * 30 m. One instanced mesh for all of them: a single draw call.
  */
 import * as THREE from 'three';
+import type { Terrain } from '../world/terrain';
 import type { ZonePothole } from '../world/zone';
 
 const DARK = '#1E1A16';
@@ -53,7 +54,7 @@ function holeTexture(): THREE.CanvasTexture {
 }
 
 /** World (x, y) maps to Three.js (x, -z). The rim reaches a little past each pothole's radius. */
-export function buildPotholes(list: ZonePothole[]): THREE.Object3D[] {
+export function buildPotholes(list: ZonePothole[], terrain: Terrain): THREE.Object3D[] {
   if (list.length === 0) return [];
   const geo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
   const mat = new THREE.MeshLambertMaterial({
@@ -70,11 +71,16 @@ export function buildPotholes(list: ZonePothole[]): THREE.Object3D[] {
   const m = new THREE.Matrix4();
   const q = new THREE.Quaternion();
   const up = new THREE.Vector3(0, 1, 0);
+  const tilt = new THREE.Quaternion();
+  const n = new THREE.Vector3();
   list.forEach(([x, y, r], i) => {
     const size = r * 2 * 1.45;
-    q.setFromAxisAngle(up, (i * 2.399) % (Math.PI * 2));
+    // Turned for variety, then tilted to lie flat on the slope.
+    const [nx, ny, nz] = terrain.normal(x, y);
+    tilt.setFromUnitVectors(up, n.set(nx, nz, -ny));
+    q.setFromAxisAngle(up, (i * 2.399) % (Math.PI * 2)).premultiply(tilt);
     m.compose(
-      new THREE.Vector3(x, 0.06, -y),
+      new THREE.Vector3(x, terrain.heightAt(x, y) + 0.06, -y),
       q,
       new THREE.Vector3(size, 1, size * (0.8 + ((i * 7) % 5) * 0.08)),
     );

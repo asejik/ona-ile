@@ -71,3 +71,35 @@ describe('stepVehicle', () => {
     expect(v.x).toBe(5);
   });
 });
+
+describe('hills (M4c)', () => {
+  const slope = (grade: number): DriveEnvironment => ({ ...open, grade: () => grade });
+  // About 4°: the steepest roads in zone 1.
+  const STEEP = 0.07;
+
+  it('slows the keke going uphill', () => {
+    const flat = drive({ gas: 1 }, 20);
+    const up = drive({ gas: 1 }, 20, slope(STEEP));
+    expect(up.v).toBeLessThan(flat.v - 1);
+    expect(up.v).toBeGreaterThan(flat.v * 0.7);
+  });
+
+  it('lets it coast downhill, where it would stop on the flat', () => {
+    const start = () => Object.assign(createVehicle(0, 0, 0), { v: 8 });
+    const flat = drive({}, 6, open, start());
+    const down = drive({}, 6, slope(-STEEP), start());
+    expect(flat.v).toBeLessThan(0.5);
+    expect(down.v).toBeGreaterThan(6);
+  });
+
+  it('keeps rolling down a main-road hill (about 2.5°), where it would stop on the flat', () => {
+    const v = drive({}, 6, slope(-0.044), Object.assign(createVehicle(0, 0, 0), { v: 8 }));
+    expect(v.v).toBeGreaterThan(7.5);
+  });
+
+  it('holds still on a slope with no throttle', () => {
+    const v = drive({}, 5, slope(STEEP));
+    expect(v.v).toBe(0);
+    expect(v.x).toBe(0);
+  });
+});
