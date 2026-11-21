@@ -9,7 +9,8 @@ import { naira } from '../story/content';
 export interface TrackerState {
   ride:
     | { kind: 'find'; nearestM: number | null }
-    | { kind: 'ride'; pax: string; dest: string; metres: number; secondsLeft: number; comfort: number };
+    | { kind: 'ride'; pax: string; dest: string; metres: number; secondsLeft: number; comfort: number }
+    | { kind: 'challenge'; dest: string; metres: number; secondsLeft: number; countdown: number };
   money: number;
   goal: number;
   pagesFound: number;
@@ -59,6 +60,14 @@ export function createTracker(root: HTMLElement): Tracker {
             ? 'Find a passenger (₦ sign)'
             : `Find a passenger: nearest ${Math.round(s.ride.nearestM / 10) * 10} m`;
         line('ride').classList.remove('urgent');
+        comfort.hidden = true;
+      } else if (s.ride.kind === 'challenge') {
+        // TIME-1: the clock counts down to the bronze time.
+        text('ride').textContent =
+          s.ride.countdown > 0
+            ? `Challenge: to ${s.ride.dest} · starting in ${Math.ceil(s.ride.countdown)}`
+            : `Challenge: to ${s.ride.dest} · ${Math.round(s.ride.metres)} m · ${time(s.ride.secondsLeft)}`;
+        line('ride').classList.toggle('urgent', s.ride.countdown === 0 && s.ride.secondsLeft < 15);
         comfort.hidden = true;
       } else {
         const late = s.ride.secondsLeft < 0;
