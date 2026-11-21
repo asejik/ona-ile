@@ -5,7 +5,8 @@ export async function startGame(page: Page): Promise<void> {
   await page.goto('/');
   await page.waitForFunction(() => window.__ona?.ready === true, undefined, { timeout: 60_000 });
   await page.locator('#startBtn').click();
-  await expect.poll(() => page.evaluate(() => window.__ona.game!.started)).toBe(true);
+  // The first frame after Start can hold the page's main thread for seconds with software WebGL (CI).
+  await expect.poll(() => page.evaluate(() => window.__ona.game!.started), { timeout: 30_000 }).toBe(true);
   await closeCards(page);
   await expect(page.locator('#hud')).toBeVisible();
   // The ride loop runs inside game frames, and the first frames after starting can take seconds with
