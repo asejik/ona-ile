@@ -15,6 +15,8 @@ export interface GameState {
   /** Notebook pages restored, one flag per notebook place. */
   pages: boolean[];
   rides: number;
+  /** Keke damage, 0–100 to one decimal (DMG-1). 100 means broken down. */
+  damage: number;
   stageDone: boolean;
   introDone: boolean;
   bisiDone: boolean;
@@ -26,6 +28,7 @@ export function newGame(pageCount: number): GameState {
     respect: 30,
     pages: Array.from({ length: pageCount }, () => false),
     rides: 0,
+    damage: 0,
     stageDone: false,
     introDone: false,
     bisiDone: false,

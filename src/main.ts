@@ -27,6 +27,7 @@ import { circlePolygon, placeKiosks, placeTrees, roundaboutIslands, seededRandom
 import { RoadNetwork } from './world/roads';
 import { placeSignPosts } from './world/signs';
 import { buildSpots } from './world/spots';
+import { placeWorkshop, WORKSHOP_NAME } from './world/workshop';
 import { startPose } from './world/start';
 import { loadZone } from './world/zone';
 
@@ -51,6 +52,12 @@ interface DebugHandle {
     readonly money: number;
     readonly respect: number;
     readonly pages: boolean[];
+    /** Keke damage, 0–100 (DMG-1). */
+    readonly damage: number;
+    /** Oga Lati's workshop stop, for tests. */
+    readonly workshop: { stopX: number; stopY: number } | null;
+    /** Sets the damage, for tests and debugging. */
+    setDamage(n: number): void;
     readonly trip: { pax: string; to: string; toX: number; toY: number } | null;
     readonly offers: { pax: string; stopX: number; stopY: number; kerbX: number; kerbY: number }[];
     readonly started: boolean;
@@ -105,6 +112,7 @@ async function boot(): Promise<void> {
   const wardens = createWardens(islands);
   const npcs = createTraffic(roads, zone.nodes, rand, LOW_DETAIL ? 10 : 16);
   const spots = buildSpots(zone, roads);
+  const workshop = placeWorkshop(zone, roads, spots, (x, y) => obstacles.collide(x, y, 1.2).hit);
 
   const start = startPose(zone, roads);
   const player = createVehicle(start.x, start.y, start.h);
@@ -145,6 +153,15 @@ async function boot(): Promise<void> {
     zone.notebook.forEach((n, i) => {
       if (!ride.state.pages[i]) marks.push({ kind: 'notebook', x: n.x, y: n.y, label: n.name });
     });
+    // Oga Lati's, held on the minimap's rim once the keke needs him (DMG-4).
+    if (workshop)
+      marks.push({
+        kind: 'repair',
+        x: workshop.kerbX,
+        y: workshop.kerbY,
+        label: WORKSHOP_NAME,
+        rim: ride.state.damage > 50,
+      });
     return marks;
   };
   const fullMap = createFullMap(fullMapEl, {
@@ -159,6 +176,7 @@ async function boot(): Promise<void> {
   window.addEventListener('resize', () => scene.resize());
   const markers = createMarkers(scene.three, scene.keke);
   const flashEl = $('flash');
+  markers.setWorkshop(workshop);
 
   const ride = createRideLoop({
     zone,
@@ -170,6 +188,7 @@ async function boot(): Promise<void> {
     sound,
     wardens,
     rand,
+    workshop,
     flash: () => {
       sound.shutter();
       // A paper-coloured flash; softer and shorter with reduced motion (DESIGN A-7).
@@ -322,6 +341,12 @@ async function boot(): Promise<void> {
   let hudTimer = 0;
   let lastBump = 0;
   let time = 0;
+  let wasOnRoad = true;
+  const dmgEl = $('dmg');
+  const dmgFill = $('dmgFill');
+  const dmgPct = $('dmgPct');
+  /** A broken-down keke won't go, whatever the controls say (DMG-3). */
+  const stalled = { gas: 0, brake: 0, left: 0, right: 0 };
 
   const frame = (now: number) => {
     // The simulation step is capped so a slow frame can't tunnel through walls; the HUD uses real time.
@@ -330,13 +355,15 @@ async function boot(): Promise<void> {
     last = now;
     time += dt;
     if (!paused()) {
-      const step = stepVehicle(player, input, dt, env);
+      const step = stepVehicle(player, ride.broken ? stalled : input, dt, env, ride.wear);
       if (step.impact > 2.2 && time - lastBump > 0.45) {
         lastBump = time;
         sound.thud();
         scene.bump(step.impact);
         ride.bump(step.impact);
       }
+      if (wasOnRoad && !step.onRoad) ride.kerb(Math.abs(player.v));
+      wasOnRoad = step.onRoad;
       const changed = stepWardens(wardens, dt);
       for (const w of changed) {
         const d = Math.hypot(player.x - w.x, player.y - w.y);
@@ -355,6 +382,11 @@ async function boot(): Promise<void> {
     if (hudTimer <= 0) {
       hudTimer = 0.2;
       speedEl.textContent = `${Math.round(Math.abs(player.v) * 3.6)}`;
+      const dmg = Math.round(ride.state.damage);
+      dmgPct.textContent = `${dmg}%`;
+      dmgFill.style.transform = `scaleX(${dmg / 100})`;
+      dmgEl.classList.toggle('hi', dmg > 50);
+      dmgEl.setAttribute('aria-valuenow', `${dmg}`);
       const name = roads.roadNameAt(player.x, player.y);
       streetEl.textContent = name;
       streetEl.hidden = name === '';
@@ -397,6 +429,13 @@ async function boot(): Promise<void> {
       },
       get pages() {
         return [...ride.state.pages];
+      },
+      get damage() {
+        return ride.state.damage;
+      },
+      workshop: workshop && { stopX: workshop.stopX, stopY: workshop.stopY },
+      setDamage(n: number) {
+        ride.state.damage = Math.min(100, Math.max(0, n));
       },
       get trip() {
         const t = ride.trip;
