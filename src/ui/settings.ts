@@ -1,5 +1,6 @@
 /**
- * The settings card (DESIGN §6): controls, swipe steering, sound and the save code.
+ * The settings card (DESIGN §6): controls, swipe steering, text size, graphics, reduce motion, sound and
+ * the save code.
  * Each choice is a group of buttons with aria-pressed. Focus stays inside the card and Esc closes it.
  */
 import { decodeSaveCode, encodeSaveCode } from '../platform/save';
@@ -15,6 +16,10 @@ export interface SettingsDeps {
   pageCount: number;
   /** Replaces the game with an imported one. */
   load(state: GameState): void;
+  /** Whether motion is reduced now: the player's choice, or the device's when they haven't chosen. */
+  reducedMotion(): boolean;
+  /** Restarts the game so a new graphics setting takes effect (progress is already saved). */
+  restart(): void;
 }
 
 export interface SettingsPanel {
@@ -34,9 +39,15 @@ export function createSettingsPanel(root: HTMLElement, d: SettingsDeps): Setting
   let restoreFocus: Element | null = null;
   let pending: GameState | null = null;
 
+  const gfxRestart = q('#gfxRestart');
+  /** The graphics setting the game was started with, to tell whether a restart is needed. */
+  let startedWith = d.settings.graphics;
   const value = (key: string): string => {
     const s = d.settings;
     if (key === 'sound') return s.sound ? 'on' : 'off';
+    if (key === 'reduceMotion') return d.reducedMotion() ? 'on' : 'off';
+    if (key === 'textSize') return s.textSize;
+    if (key === 'graphics') return s.graphics;
     return key === 'controls' ? s.controls : s.steer;
   };
   const sync = () => {
@@ -53,9 +64,14 @@ export function createSettingsPanel(root: HTMLElement, d: SettingsDeps): Setting
       if (!b) return;
       const v = b.dataset.value!;
       const s = d.settings;
-      if (g.dataset.setting === 'sound') s.sound = v === 'on';
-      else if (g.dataset.setting === 'controls') s.controls = v as Settings['controls'];
+      const key = g.dataset.setting;
+      if (key === 'sound') s.sound = v === 'on';
+      else if (key === 'reduceMotion') s.reduceMotion = v === 'on';
+      else if (key === 'textSize') s.textSize = v as Settings['textSize'];
+      else if (key === 'graphics') s.graphics = v as Settings['graphics'];
+      else if (key === 'controls') s.controls = v as Settings['controls'];
       else s.steer = v as Settings['steer'];
+      gfxRestart.hidden = s.graphics === startedWith;
       sync();
       d.changed();
     });
@@ -108,6 +124,10 @@ export function createSettingsPanel(root: HTMLElement, d: SettingsDeps): Setting
     q('#importBtn').focus({ preventScroll: true });
   });
   q('#importNo').addEventListener('click', resetImport);
+  q('#gfxRestartBtn').addEventListener('click', () => {
+    startedWith = d.settings.graphics;
+    d.restart();
+  });
 
   const panel: SettingsPanel = {
     get open() {

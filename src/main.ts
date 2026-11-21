@@ -6,7 +6,7 @@ import { crashReportsAllowed, loadConsent } from './platform/consent';
 import { reportError, startCrashReporting } from './platform/crash';
 import { configUrl, PLATFORM } from './platform/native';
 import { createSaveStore } from './platform/save';
-import { loadSettings, saveSettings } from './platform/settings';
+import { QUALITY, effectiveQuality, loadSettings, saveSettings } from './platform/settings';
 import { browserStore } from './platform/storage';
 import { createMarkers } from './render/markers';
 import { createScene } from './render/scene';
@@ -16,6 +16,7 @@ import { createVehicle, stepVehicle, type VehicleState } from './sim/vehicle';
 import { CHALLENGES } from './story/content';
 import { createWardens, nearestWarden, secondsLeft, stepWardens, wardenRules } from './sim/wardens';
 import { createSound } from './ui/audio';
+import { createCredits } from './ui/credits';
 import { createDialogs } from './ui/dialog';
 import { createInput } from './ui/input';
 import { createFullMap } from './ui/fullmap';
@@ -23,6 +24,7 @@ import type { MapMark } from './ui/mapdraw';
 import { createMinimap } from './ui/minimap';
 import { createSettingsPanel } from './ui/settings';
 import { createSwipe, STEER_GAIN } from './ui/swipe';
+import { stackHud } from './ui/hudlayout';
 import { createTracker } from './ui/tracker';
 import { Obstacles } from './world/collision';
 import { circlePolygon, placeKiosks, placeTrees, roundaboutIslands, seededRandom } from './world/props';
@@ -88,16 +90,21 @@ window.__ona = { ready: false, crashReporting: 'pending' };
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
-/** Phones and low-memory devices get fewer trees, a smaller shadow map and shorter view distance. */
-const LOW_DETAIL =
+/** Phones and low-memory devices: graphics quality 'auto' means low there (SYS-1). */
+const SLOW_DEVICE =
   window.matchMedia('(pointer: coarse)').matches ||
   ((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8) <= 4;
-const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const SYSTEM_REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 /** Fixed seed: kiosks, trees and traffic are the same on every device and every visit. */
 const WORLD_SEED = 20261113;
 
 async function boot(): Promise<void> {
   const zone = await loadZone(ZONE_URL);
+  const store = browserStore();
+  const settings = loadSettings(store);
+  // Graphics quality is read once: the world is built for it. A change applies on the next start.
+  const quality = QUALITY[effectiveQuality(settings, SLOW_DEVICE)];
+  const reducedMotion = () => settings.reduceMotion ?? SYSTEM_REDUCED_MOTION;
   // The warden signs and the ₦ coin are drawn with the display font, so make sure it has loaded.
   await document.fonts.load('800 34px "Baloo 2"').catch(() => undefined);
   const roads = new RoadNetwork(zone);
@@ -117,15 +124,9 @@ async function boot(): Promise<void> {
     ...kiosks.map((k) => k.poly),
     ...signPosts.map((p) => circlePolygon(p.x, p.y, 0.25, 6)),
   ]);
-  const trees = placeTrees(
-    zone,
-    roads,
-    (x, y) => obstacles.collide(x, y, 1.5).hit,
-    rand,
-    LOW_DETAIL ? 520 : 900,
-  );
+  const trees = placeTrees(zone, roads, (x, y) => obstacles.collide(x, y, 1.5).hit, rand, quality.trees);
   const wardens = createWardens(islands);
-  const npcs = createTraffic(roads, zone.nodes, rand, LOW_DETAIL ? 10 : 16);
+  const npcs = createTraffic(roads, zone.nodes, rand, quality.traffic);
   const spots = buildSpots(zone, roads);
   const workshop = placeWorkshop(zone, roads, spots, (x, y) => obstacles.collide(x, y, 1.2).hit);
   // TIME-1: challenge boards on kerbs clear of the pickup stops and the workshop.
@@ -148,8 +149,6 @@ async function boot(): Promise<void> {
 
   const start = startPose(zone, roads);
   const player = createVehicle(start.x, start.y, start.h);
-  const store = browserStore();
-  const settings = loadSettings(store);
   const sound = createSound();
   sound.muted = !settings.sound;
   const dialogs = createDialogs($('dialog'), $('toasts'));
@@ -167,7 +166,7 @@ async function boot(): Promise<void> {
     zone,
     roads,
     { kiosks, trees, islands, wardens, npcs, signPosts, potholes: potholes.list, terrain },
-    { lowDetail: LOW_DETAIL, reducedMotion: REDUCED_MOTION },
+    { detail: quality, reducedMotion },
     rand,
   );
   const minimap = createMinimap($<HTMLCanvasElement>('minimap'), $('north'), zone, islands);
@@ -230,8 +229,8 @@ async function boot(): Promise<void> {
     flash: () => {
       sound.shutter();
       // A paper-coloured flash; softer and shorter with reduced motion (DESIGN A-7).
-      flashEl.animate([{ opacity: REDUCED_MOTION ? 0.4 : 0.9 }, { opacity: 0 }], {
-        duration: REDUCED_MOTION ? 250 : 600,
+      flashEl.animate([{ opacity: reducedMotion() ? 0.4 : 0.9 }, { opacity: 0 }], {
+        duration: reducedMotion() ? 250 : 600,
         easing: 'ease-out',
       });
     },
@@ -252,6 +251,9 @@ async function boot(): Promise<void> {
     hudEl.dataset.controls = settings.controls;
     hintEl.hidden = !touch || settings.controls === 'buttons' || settings.swipeHintDone;
     sound.muted = !settings.sound;
+    // ACC-2 text size and reduced motion, as attributes the stylesheet reads.
+    document.documentElement.dataset.textSize = settings.textSize;
+    document.documentElement.toggleAttribute('data-reduce-motion', reducedMotion());
   };
   applySettings();
   const swipe = createSwipe($('gl'), $('swipeRing'), input, {
@@ -271,6 +273,8 @@ async function boot(): Promise<void> {
       applySettings();
     },
     game: () => ride.state,
+    reducedMotion,
+    restart: () => location.reload(),
     pageCount: zone.notebook.length,
     load: (state) => {
       ride.load(state);
@@ -319,6 +323,8 @@ async function boot(): Promise<void> {
     });
   });
   $('titleSettings').addEventListener('click', () => settingsPanel.show());
+  const credits = createCredits($('credits'), __APP_VERSION__);
+  $('titleCredits').addEventListener('click', () => credits.show());
   const openMap = () => {
     if (!started || paused()) return;
     swipe.cancel();
@@ -376,6 +382,8 @@ async function boot(): Promise<void> {
   const wardenName = $('wardenName');
   const wardenSig = $('wardenSig');
   const photoBtn = $('photoBtn');
+  // ACC-2: at larger text sizes, later elements move down clear of Today's page.
+  const hudStack = [$('tracker'), $('mapBtn'), wardenEl, streetEl];
   let last = performance.now();
   let hudTimer = 0;
   let lastBump = 0;
@@ -446,6 +454,7 @@ async function boot(): Promise<void> {
       }
       window.__ona.wardens = wardens.map((w) => ({ name: w.name, phase: w.phase }));
       if (started) tracker.update(ride.tracker(player));
+      stackHud(hudStack);
       photoBtn.hidden = ride.photoTarget === null || still;
     }
     requestAnimationFrame(frame);
