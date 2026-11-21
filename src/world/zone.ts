@@ -66,6 +66,18 @@ export interface ZoneJunction {
   exits: ZoneExit[];
 }
 
+/** Ground heights (M4c) on a regular grid, row by row from the south-west corner, in game metres. */
+export interface ZoneTerrain {
+  x0: number;
+  y0: number;
+  step: number;
+  cols: number;
+  rows: number;
+  h: number[];
+  /** Credit line the data's licence asks for. */
+  attribution: string;
+}
+
 /** A pothole (REAL-5): [x, y, radius in metres, deep (1) or shallow (0)]. */
 export type ZonePothole = [number, number, number, 0 | 1];
 
@@ -88,6 +100,8 @@ export interface Zone {
   junctions: ZoneJunction[];
   /** Empty for zones built without an overrides file. */
   potholes: ZonePothole[];
+  /** Null for flat zones (built without an overrides file). */
+  terrain: ZoneTerrain | null;
 }
 
 /** Checks the fields the game relies on, so a bad file fails with a clear message. */
@@ -103,6 +117,7 @@ export function parseZone(data: unknown): Zone {
     ...z,
     junctions: Array.isArray(z.junctions) ? z.junctions : [],
     potholes: Array.isArray(z.potholes) ? z.potholes : [],
+    terrain: z.terrain && Array.isArray(z.terrain.h) ? z.terrain : null,
   } as Zone;
 }
 
