@@ -13,6 +13,7 @@ import { createScene } from './render/scene';
 import { Potholes } from './sim/potholes';
 import { createTraffic, pushOutOfTraffic, stepTraffic } from './sim/traffic';
 import { createVehicle, stepVehicle, type VehicleState } from './sim/vehicle';
+import { CHALLENGES } from './story/content';
 import { createWardens, nearestWarden, secondsLeft, stepWardens, wardenRules } from './sim/wardens';
 import { createSound } from './ui/audio';
 import { createDialogs } from './ui/dialog';
@@ -30,6 +31,7 @@ import { placeSignPosts } from './world/signs';
 import { buildSpots } from './world/spots';
 import { Terrain } from './world/terrain';
 import { placeWorkshop, WORKSHOP_NAME } from './world/workshop';
+import { placeChallenges } from './world/challenges';
 import { startPose } from './world/start';
 import { loadZone } from './world/zone';
 
@@ -62,6 +64,12 @@ interface DebugHandle {
     readonly damage: number;
     /** Oga Lati's workshop stop, for tests. */
     readonly workshop: { stopX: number; stopY: number } | null;
+    /** Timed challenges (TIME-1): where each starts and finishes, for tests. */
+    readonly challenges: { id: string; startX: number; startY: number; finishX: number; finishY: number }[];
+    /** The challenge being driven, or null. */
+    readonly run: { id: string; t: number; countdown: number } | null;
+    /** Best challenge times by id. */
+    readonly best: Record<string, number>;
     /** Sets the damage, for tests and debugging. */
     setDamage(n: number): void;
     readonly trip: { pax: string; to: string; toX: number; toY: number } | null;
@@ -120,10 +128,22 @@ async function boot(): Promise<void> {
   const npcs = createTraffic(roads, zone.nodes, rand, LOW_DETAIL ? 10 : 16);
   const spots = buildSpots(zone, roads);
   const workshop = placeWorkshop(zone, roads, spots, (x, y) => obstacles.collide(x, y, 1.2).hit);
-  // REAL-5: kept clear of pickup stops and the workshop, so nobody waits beside a hole.
+  // TIME-1: challenge boards on kerbs clear of the pickup stops and the workshop.
+  const challenges = placeChallenges(
+    zone,
+    roads,
+    CHALLENGES,
+    [...spots, ...(workshop ? [workshop] : [])],
+    (x, y) => obstacles.collide(x, y, 1.2).hit,
+  );
+  // REAL-5: kept clear of every stop, so nobody waits (or finishes a challenge) beside a hole.
   const potholes = new Potholes(zone.potholes, [
     ...spots.map((s) => ({ x: s.stopX, y: s.stopY })),
     ...(workshop ? [{ x: workshop.stopX, y: workshop.stopY }] : []),
+    ...challenges.flatMap((c) => [
+      { x: c.start.stopX, y: c.start.stopY },
+      { x: c.finish.stopX, y: c.finish.stopY },
+    ]),
   ]);
 
   const start = startPose(zone, roads);
@@ -166,6 +186,10 @@ async function boot(): Promise<void> {
       if (!ride.state.pages[i]) marks.push({ kind: 'notebook', x: n.x, y: n.y, label: n.name });
     });
     // Oga Lati's, held on the minimap's rim once the keke needs him (DMG-4).
+    // TIME-1: challenge boards, until a run starts.
+    if (!ride.run)
+      for (const c of challenges)
+        marks.push({ kind: 'challenge', x: c.start.kerbX, y: c.start.kerbY, label: `${c.from} to ${c.to}` });
     if (workshop)
       marks.push({
         kind: 'repair',
@@ -189,6 +213,7 @@ async function boot(): Promise<void> {
   const markers = createMarkers(scene.three, scene.keke, terrain);
   const flashEl = $('flash');
   markers.setWorkshop(workshop);
+  markers.setChallenges(challenges.map((c) => c.start));
 
   const ride = createRideLoop({
     zone,
@@ -201,6 +226,7 @@ async function boot(): Promise<void> {
     wardens,
     rand,
     workshop,
+    challenges,
     flash: () => {
       sound.shutter();
       // A paper-coloured flash; softer and shorter with reduced motion (DESIGN A-7).
@@ -358,7 +384,7 @@ async function boot(): Promise<void> {
   const dmgEl = $('dmg');
   const dmgFill = $('dmgFill');
   const dmgPct = $('dmgPct');
-  /** A broken-down keke won't go, whatever the controls say (DMG-3). */
+  /** A broken-down keke, or one held for a challenge countdown, won't go whatever the controls say. */
   const stalled = { gas: 0, brake: 0, left: 0, right: 0 };
 
   const frame = (now: number) => {
@@ -368,7 +394,7 @@ async function boot(): Promise<void> {
     last = now;
     time += dt;
     if (!paused()) {
-      const step = stepVehicle(player, ride.broken ? stalled : input, dt, env, ride.wear);
+      const step = stepVehicle(player, ride.held ? stalled : input, dt, env, ride.wear);
       if (step.impact > 2.2 && time - lastBump > 0.45) {
         lastBump = time;
         sound.thud();
@@ -456,6 +482,19 @@ async function boot(): Promise<void> {
         return ride.state.damage;
       },
       workshop: workshop && { stopX: workshop.stopX, stopY: workshop.stopY },
+      challenges: challenges.map((c) => ({
+        id: c.id,
+        startX: c.start.stopX,
+        startY: c.start.stopY,
+        finishX: c.finish.stopX,
+        finishY: c.finish.stopY,
+      })),
+      get run() {
+        return ride.run;
+      },
+      get best() {
+        return { ...ride.state.best };
+      },
       setDamage(n: number) {
         ride.state.damage = Math.min(100, Math.max(0, n));
       },

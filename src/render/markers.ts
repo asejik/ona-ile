@@ -25,6 +25,8 @@ export interface Markers {
   setNotebook(places: { x: number; y: number; found: boolean }[]): void;
   /** Oga Lati's workshop (DMG-4): a spanner board on the kerb and a paper ring where the keke stops. */
   setWorkshop(spot: Spot | null): void;
+  /** Timed challenge boards (TIME-1): a yellow stopwatch board on the kerb and a yellow ring to stop in. */
+  setChallenges(starts: Spot[]): void;
   update(player: { x: number; y: number }, time: number): void;
 }
 
@@ -106,6 +108,47 @@ const SPANNER = () =>
     g.fill();
   });
 
+/** DESIGN §6: a yellow --keke board with ink text and a stopwatch icon. */
+const CHALLENGE_BOARD = () => {
+  const c = document.createElement('canvas');
+  c.width = 320;
+  c.height = 128;
+  const g = c.getContext('2d')!;
+  g.fillStyle = '#1C1812';
+  g.beginPath();
+  g.roundRect(4, 14, 312, 100, 16);
+  g.fill();
+  g.fillStyle = '#F2C230';
+  g.beginPath();
+  g.roundRect(10, 20, 300, 88, 12);
+  g.fill();
+  // Stopwatch.
+  g.fillStyle = '#1C1812';
+  g.fillRect(48, 30, 16, 10);
+  g.lineWidth = 7;
+  g.strokeStyle = '#1C1812';
+  g.beginPath();
+  g.arc(56, 70, 26, 0, Math.PI * 2);
+  g.stroke();
+  g.lineCap = 'round';
+  g.beginPath();
+  g.moveTo(56, 70);
+  g.lineTo(56, 52);
+  g.moveTo(56, 70);
+  g.lineTo(70, 70);
+  g.stroke();
+  // Sized so the longer word fits the board, whatever the font's exact widths.
+  let px = 34;
+  g.font = `800 ${px}px "Baloo 2", sans-serif`;
+  while (px > 18 && g.measureText('CHALLENGE').width > 200) g.font = `800 ${--px}px "Baloo 2", sans-serif`;
+  g.textBaseline = 'middle';
+  g.fillText('TIMED', 98, 50);
+  g.fillText('CHALLENGE', 98, 84);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return new THREE.SpriteMaterial({ map: t, fog: false });
+};
+
 export function createMarkers(scene: THREE.Scene, keke: THREE.Group, terrain: Terrain): Markers {
   const ground = (x: number, y: number) => terrain.heightAt(x, y);
   const coinMat = COIN();
@@ -185,6 +228,10 @@ export function createMarkers(scene: THREE.Scene, keke: THREE.Group, terrain: Te
   let workshopAt: Spot | null = null;
   workshop.add(post, spanner);
   scene.add(workshop, workshopRing);
+
+  const boardMat = CHALLENGE_BOARD();
+  const boards: THREE.Object3D[] = [];
+  const boardSigns: { sprite: THREE.Sprite; x: number; y: number }[] = [];
 
   let rider: THREE.Mesh | null = null;
   const books: { sprite: THREE.Sprite; beam: THREE.Mesh; x: number; y: number; g: number }[] = [];
@@ -274,6 +321,25 @@ export function createMarkers(scene: THREE.Scene, keke: THREE.Group, terrain: Te
       spanner.position.y = 4.4;
       workshopRing.position.set(spot.stopX, ground(spot.stopX, spot.stopY) + 0.09, -spot.stopY);
     },
+    setChallenges(starts) {
+      for (const b of boards) scene.remove(b);
+      boards.length = 0;
+      boardSigns.length = 0;
+      for (const s of starts) {
+        const g = ground(s.kerbX, s.kerbY);
+        const board = new THREE.Group();
+        board.position.set(s.kerbX, g, -s.kerbY);
+        const sign = new THREE.Sprite(boardMat);
+        sign.scale.set(5, 2, 1);
+        sign.position.y = 4.2;
+        board.add(post.clone(), sign);
+        const r = ring(pickupMat);
+        r.position.set(s.stopX, ground(s.stopX, s.stopY) + 0.09, -s.stopY);
+        scene.add(board, r);
+        boards.push(board, r);
+        boardSigns.push({ sprite: sign, x: s.kerbX, y: s.kerbY });
+      }
+    },
     update(player, time) {
       const pulse = 1 + Math.sin(time * 4) * 0.06;
       for (const w of waiting.values()) {
@@ -284,6 +350,7 @@ export function createMarkers(scene: THREE.Scene, keke: THREE.Group, terrain: Te
       }
       dest.scale.set(pulse, 1, pulse);
       // Like the coins, the spanner would fill the view when parked right beside it.
+      for (const b of boardSigns) b.sprite.visible = Math.hypot(player.x - b.x, player.y - b.y) > 12;
       if (workshopAt)
         spanner.visible = Math.hypot(player.x - workshopAt.kerbX, player.y - workshopAt.kerbY) > 12;
       books.forEach((b, i) => {

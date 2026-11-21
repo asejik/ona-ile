@@ -1166,6 +1166,19 @@ input.code:focus-visible {
   background: var(--paper);
 }
 
+.lg.challenge {
+  border-radius: 50%;
+  background: var(--keke);
+}
+
+.lg.challenge::after {
+  content: '';
+  width: 2px;
+  height: 5px;
+  margin-top: -3px;
+  background: var(--ink);
+}
+
 .lg.repair {
   border-radius: 50%;
   background: var(--paper);

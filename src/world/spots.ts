@@ -63,6 +63,37 @@ export function placeAtKerb(
   return null;
 }
 
+/**
+ * A roadside stop about `aim` metres (straight line) from `home`, on a main road, at least `clear` metres
+ * from every stop in `avoid`, with its kerb clear (`blocked` says whether a kerb point is inside a building
+ * or kiosk). Used for places that aren't pickup spots: Oga Lati's workshop, the challenge boards.
+ */
+export function kerbNear(
+  zone: Zone,
+  roads: RoadNetwork,
+  name: string,
+  home: { x: number; y: number },
+  aim: number,
+  avoid: { stopX: number; stopY: number }[],
+  clear: number,
+  blocked: (x: number, y: number) => boolean = () => false,
+): Spot | null {
+  const candidates = roads.mainNodes
+    .filter((i) => roads.nodeWidth[i]! >= 6)
+    .map((i) => {
+      const [x, y] = zone.nodes[i]!;
+      return { i, miss: Math.abs(Math.hypot(x - home.x, y - home.y) - aim) };
+    })
+    .sort((a, b) => a.miss - b.miss);
+  for (const { i } of candidates) {
+    const placed = placeAtKerb(zone, roads, i);
+    if (!placed || blocked(placed.kerbX, placed.kerbY)) continue;
+    if (avoid.some((s) => Math.hypot(s.stopX - placed.stopX, s.stopY - placed.stopY) < clear)) continue;
+    return { name, node: i, ...placed };
+  }
+  return null;
+}
+
 export function buildSpots(zone: Zone, roads: RoadNetwork): Spot[] {
   const out: Spot[] = [];
   const used = new Set<number>();
