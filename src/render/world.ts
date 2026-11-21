@@ -17,19 +17,34 @@ interface Buffers {
 
 const col = (hex: string) => new THREE.Color(hex);
 const UP = new THREE.Vector3(0, 1, 0);
-/** On hills, roads are cut into pieces this long (metres) so they follow the ground. */
-const ROAD_PIECE = 5;
+/** A straight road piece may stray this far (metres) from the ground under it before it is split. */
+const ROAD_FIT = 0.01;
+/** The ground is cut into square tiles of this many grid cells, so tiles off screen aren't drawn. */
+const GROUND_TILE = 16;
 
-/** Adds points along each segment so no piece is longer than `max`. */
-function densify(pts: Pt[], max: number): Pt[] {
-  if (!Number.isFinite(max) || pts.length < 2) return pts;
+/**
+ * Splits road segments where the ground bends under them, so the road follows the hills without cutting
+ * every segment into small pieces (which would blow the triangle budget). Flat stretches stay whole.
+ */
+function followGround(pts: Pt[], terrain: Terrain): Pt[] {
+  if (!terrain.grid || pts.length < 2) return pts;
+  const h = (p: Pt) => terrain.heightAt(p[0], p[1]);
   const out: Pt[] = [pts[0]!];
-  for (let i = 1; i < pts.length; i++) {
-    const [ax, ay] = pts[i - 1]!;
-    const [bx, by] = pts[i]!;
-    const n = Math.ceil(Math.hypot(bx - ax, by - ay) / max);
-    for (let k = 1; k <= n; k++) out.push([ax + ((bx - ax) * k) / n, ay + ((by - ay) * k) / n]);
-  }
+  const split = (a: Pt, b: Pt, depth: number) => {
+    const ha = h(a);
+    const hb = h(b);
+    let err = 0;
+    for (const k of [0.25, 0.5, 0.75]) {
+      const p: Pt = [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k];
+      err = Math.max(err, Math.abs(h(p) - (ha + (hb - ha) * k)));
+    }
+    if (err > ROAD_FIT && depth < 6 && Math.hypot(b[0] - a[0], b[1] - a[1]) > 2) {
+      const m: Pt = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+      split(a, m, depth + 1);
+      split(m, b, depth + 1);
+    } else out.push(b);
+  };
+  for (let i = 1; i < pts.length; i++) split(pts[i - 1]!, pts[i]!, 0);
   return out;
 }
 
@@ -47,7 +62,7 @@ function meshFrom(t: Buffers, material: THREE.Material, upNormals = false): THRE
 }
 
 /** Red laterite earth with dusty grass patches, as a repeating canvas texture, over the zone's hills. */
-export function buildGround(zone: Zone, rand: () => number, terrain: Terrain): THREE.Mesh {
+export function buildGround(zone: Zone, rand: () => number, terrain: Terrain): THREE.Object3D[] {
   const c = document.createElement('canvas');
   c.width = c.height = 256;
   const g = c.getContext('2d')!;
@@ -70,43 +85,63 @@ export function buildGround(zone: Zone, rand: () => number, terrain: Terrain): T
   tex.anisotropy = 4;
   const grid = terrain.grid;
   if (grid) {
-    // The height grid as a mesh, each cell split along the same diagonal Terrain.heightAt uses.
-    const pos: number[] = [];
-    const uv: number[] = [];
-    const idx: number[] = [];
-    for (let j = 0; j < grid.rows; j++) {
-      for (let i = 0; i < grid.cols; i++) {
-        const x = grid.x0 + i * grid.step;
-        const y = grid.y0 + j * grid.step;
-        pos.push(x, grid.h[j * grid.cols + i]!, -y);
-        uv.push(x / 34, y / 34);
+    // The height grid as tiles of GROUND_TILE cells, each cell split along the same diagonal
+    // Terrain.heightAt uses. Tiles off screen are skipped by the renderer.
+    const material = new THREE.MeshLambertMaterial({ map: tex });
+    const H = (i: number, j: number) =>
+      grid.h[Math.min(grid.rows - 1, Math.max(0, j)) * grid.cols + Math.min(grid.cols - 1, Math.max(0, i))]!;
+    const tiles: THREE.Object3D[] = [];
+    for (let tj = 0; tj < grid.rows - 1; tj += GROUND_TILE) {
+      for (let ti = 0; ti < grid.cols - 1; ti += GROUND_TILE) {
+        const i1 = Math.min(grid.cols - 1, ti + GROUND_TILE);
+        const j1 = Math.min(grid.rows - 1, tj + GROUND_TILE);
+        const w0 = i1 - ti + 1;
+        const pos: number[] = [];
+        const nor: number[] = [];
+        const uv: number[] = [];
+        const idx: number[] = [];
+        for (let j = tj; j <= j1; j++) {
+          for (let i = ti; i <= i1; i++) {
+            const x = grid.x0 + i * grid.step;
+            const y = grid.y0 + j * grid.step;
+            pos.push(x, H(i, j), -y);
+            // Normals from the whole grid, so tiles meet without a lighting seam. Three.js z is -y.
+            const dx = (H(i + 1, j) - H(i - 1, j)) / (2 * grid.step);
+            const dy = (H(i, j + 1) - H(i, j - 1)) / (2 * grid.step);
+            const l = Math.hypot(dx, dy, 1);
+            nor.push(-dx / l, 1 / l, dy / l);
+            uv.push(x / 34, y / 34);
+          }
+        }
+        for (let j = 0; j < j1 - tj; j++) {
+          for (let i = 0; i < i1 - ti; i++) {
+            const a = j * w0 + i;
+            const b = a + 1;
+            const c2 = a + w0;
+            const d = c2 + 1;
+            // Counter-clockwise seen from above (world y north is Three.js -z).
+            idx.push(a, b, d, a, d, c2);
+          }
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+        geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+        geo.setIndex(idx);
+        geo.computeBoundingSphere();
+        const tile = new THREE.Mesh(geo, material);
+        tile.receiveShadow = true;
+        tiles.push(tile);
       }
     }
-    for (let j = 0; j < grid.rows - 1; j++) {
-      for (let i = 0; i < grid.cols - 1; i++) {
-        const a = j * grid.cols + i;
-        const b = a + 1;
-        const c2 = a + grid.cols;
-        const d = c2 + 1;
-        // Counter-clockwise seen from above (world y north is Three.js -z).
-        idx.push(a, b, d, a, d, c2);
-      }
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-    geo.setIndex(idx);
-    geo.computeVertexNormals();
-    const hills = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: tex }));
-    hills.receiveShadow = true;
-    return hills;
+    return tiles;
   }
   tex.repeat.set(w / 34, h / 34);
   const ground = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshLambertMaterial({ map: tex }));
   ground.rotation.x = -Math.PI / 2;
   ground.position.set((x0 + x1) / 2, 0, -(y0 + y1) / 2);
   ground.receiveShadow = true;
-  return ground;
+  return [ground];
 }
 
 /** Road ribbons in layers: dusty shoulders, minor and major asphalt, white centre dashes on major roads. */
@@ -203,9 +238,9 @@ export function buildRoads(zone: Zone, roads: RoadNetwork, terrain: Terrain): TH
     }
   };
   for (const r of zone.roads) {
-    const pts = densify(
+    const pts = followGround(
       r.p.map((i) => zone.nodes[i]!),
-      terrain.grid ? ROAD_PIECE : Infinity,
+      terrain,
     );
     const hw = r.w / 2;
     const major = r.w >= 10;
