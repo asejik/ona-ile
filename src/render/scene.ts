@@ -100,7 +100,7 @@ export function createScene(
   const ground = (x: number, y: number) => terrain.heightAt(x, y);
   /** Pitch for a vehicle at (x, y) facing `h`: nose up going uphill. */
   const pitch = (x: number, y: number, h: number) => Math.atan(terrain.grade(x, y, h));
-  scene.add(buildGround(zone, rand, terrain));
+  scene.add(...buildGround(zone, rand, terrain));
   scene.add(...buildRoads(zone, roads, terrain));
   scene.add(...buildBuildings(zone, world.kiosks, terrain));
   scene.add(...buildTrees(world.trees, terrain));
