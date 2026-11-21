@@ -46,7 +46,8 @@ jobs:
   app:
     name: Typecheck, lint, test, build, browser test
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # 50 browser tests on one worker with software WebGL take 8-14 minutes, depending on the runner.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
