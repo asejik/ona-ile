@@ -16,6 +16,8 @@ import { createWardens, nearestWarden, secondsLeft, stepWardens, wardenRules } f
 import { createSound } from './ui/audio';
 import { createDialogs } from './ui/dialog';
 import { createInput } from './ui/input';
+import { createFullMap } from './ui/fullmap';
+import type { MapMark } from './ui/mapdraw';
 import { createMinimap } from './ui/minimap';
 import { createSettingsPanel } from './ui/settings';
 import { createSwipe, STEER_GAIN } from './ui/swipe';
@@ -115,9 +117,10 @@ async function boot(): Promise<void> {
   const pauseEl = $('pause');
   const titleEl = $('title');
   const settingsEl = $('settings');
+  const fullMapEl = $('fullmap');
   let started = false;
   /** The world stands still on the title screen, while a card is open, and while paused. */
-  const paused = () => !started || dialogs.open || !pauseEl.hidden || !settingsEl.hidden;
+  const paused = () => !started || dialogs.open || !pauseEl.hidden || !settingsEl.hidden || !fullMapEl.hidden;
 
   const scene = createScene(
     $<HTMLCanvasElement>('gl'),
@@ -128,6 +131,31 @@ async function boot(): Promise<void> {
     rand,
   );
   const minimap = createMinimap($<HTMLCanvasElement>('minimap'), $('north'), zone, islands);
+  // NAV-5 and CORE-4: where passengers wait, where the rider is going, and Baba's places still to find.
+  const liveMarks = (): MapMark[] => {
+    const marks: MapMark[] = ride.offers.map((o) => {
+      const s = spots[o.spot]!;
+      return { kind: 'pax', x: s.kerbX, y: s.kerbY, label: `${o.pax.name} at ${s.name}` };
+    });
+    const t = ride.trip;
+    if (t) {
+      const s = spots[t.toSpot]!;
+      marks.push({ kind: 'drop', x: s.stopX, y: s.stopY, label: s.name });
+    }
+    zone.notebook.forEach((n, i) => {
+      if (!ride.state.pages[i]) marks.push({ kind: 'notebook', x: n.x, y: n.y, label: n.name });
+    });
+    return marks;
+  };
+  const fullMap = createFullMap(fullMapEl, {
+    zone,
+    islands,
+    player: () => player,
+    marks: () => [
+      ...zone.spots.map((s): MapMark => ({ kind: 'place', x: s.x, y: s.y, label: s.name })),
+      ...liveMarks(),
+    ],
+  });
   window.addEventListener('resize', () => scene.resize());
   const markers = createMarkers(scene.three, scene.keke);
   const flashEl = $('flash');
@@ -233,6 +261,20 @@ async function boot(): Promise<void> {
     });
   });
   $('titleSettings').addEventListener('click', () => settingsPanel.show());
+  const openMap = () => {
+    if (!started || paused()) return;
+    swipe.cancel();
+    input.gas = input.brake = input.left = input.right = 0;
+    fullMap.show();
+  };
+  $('mapBtn').addEventListener('click', openMap);
+  $('fullMapBtn').addEventListener('click', () => {
+    pauseEl.hidden = true;
+    fullMap.show(() => {
+      pauseEl.hidden = false;
+      $('resumeBtn').focus({ preventScroll: true });
+    });
+  });
   $('restartBtn').addEventListener('click', () => {
     pauseEl.hidden = true;
     const s = startPose(zone, roads);
@@ -242,7 +284,12 @@ async function boot(): Promise<void> {
   $('photoBtn').addEventListener('click', () => ride.takePhoto());
   window.addEventListener('keydown', (e) => {
     if (e.code === 'Escape' && settingsPanel.open) return settingsPanel.close();
+    if (fullMap.open) {
+      if (e.code === 'KeyM') fullMap.close();
+      return;
+    }
     if (!started) return;
+    if (e.code === 'KeyM' && !e.repeat) return openMap();
     if (e.code === 'Escape') setPaused(pauseEl.hidden === true);
     else if (e.code === 'KeyP' && !e.repeat && !paused()) ride.takePhoto();
   });
@@ -303,7 +350,7 @@ async function boot(): Promise<void> {
     sound.engine(still ? 0 : Math.abs(player.v), still ? 0 : input.gas - input.brake);
     markers.update(player, time);
     scene.render(player, dt);
-    minimap.draw(player, wardens, dt);
+    minimap.draw(player, wardens, dt, liveMarks());
     hudTimer -= realDt;
     if (hudTimer <= 0) {
       hudTimer = 0.2;
