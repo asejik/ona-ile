@@ -56,17 +56,26 @@ export function createVehicle(x: number, y: number, h: number): VehicleState {
   return { x, y, h, v: 0, steer: 0 };
 }
 
+/** How a worn keke drives (DMG-3): a top-speed multiplier and a steady pull to the right. */
+export interface Wear {
+  top: number;
+  pull: number;
+}
+
+const NO_WEAR: Wear = { top: 1, pull: 0 };
+
 /** Advances the vehicle by dt seconds. Mutates and returns details about this step. */
 export function stepVehicle(
   s: VehicleState,
   input: DriveInput,
   dt: number,
   env: DriveEnvironment,
+  wear: Wear = NO_WEAR,
 ): StepResult {
   const throttle = input.gas - input.brake;
-  const steerInput = input.left - input.right;
+  const steerInput = Math.max(-1, Math.min(1, input.left - input.right - wear.pull));
   const onRoad = env.roadDist(s.x, s.y) < 0.4;
-  const vmax = onRoad ? KEKE.topSpeedRoad : KEKE.topSpeedOffRoad;
+  const vmax = (onRoad ? KEKE.topSpeedRoad : KEKE.topSpeedOffRoad) * wear.top;
 
   if (throttle > 0) {
     if (s.v < 0) s.v += KEKE.brake * dt * throttle;

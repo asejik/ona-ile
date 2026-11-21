@@ -4,6 +4,16 @@
  */
 import type { Markers } from './render/markers';
 import {
+  BROKEN,
+  TOW_FEE,
+  addDamage,
+  handling,
+  impactDamage,
+  kerbDamage,
+  repairCost,
+  repairQuote,
+} from './sim/damage';
+import {
   addRespect,
   askPrice,
   bumpComfort,
@@ -29,8 +39,11 @@ import {
   type WardenEvent,
 } from './sim/wardens';
 import type { SaveStore } from './platform/save';
+import type { Wear } from './sim/vehicle';
 import {
+  BREAKDOWN,
   INTRO,
+  LATI,
   LINES,
   PROLOGUE_GOAL,
   STAGE_DONE,
@@ -42,7 +55,7 @@ import {
   type Passenger,
 } from './story/content';
 import type { Sound } from './ui/audio';
-import type { Dialogs } from './ui/dialog';
+import type { DialogButton, Dialogs } from './ui/dialog';
 import type { TrackerState } from './ui/tracker';
 import type { RoadNetwork } from './world/roads';
 import { routeFrom, type Route } from './world/routing';
@@ -58,9 +71,16 @@ export interface RideLoop {
   readonly offers: Offer[];
   /** Index of the notebook place in photo range, or null. */
   readonly photoTarget: number | null;
+  /** How the keke drives at its current damage (DMG-3). */
+  readonly wear: Wear;
+  /** True when the keke has broken down and won't go (DMG-3). */
+  readonly broken: boolean;
   begin(fresh: boolean): void;
-  update(dt: number, player: { x: number; y: number; v: number }, onRoad: boolean): void;
+  update(dt: number, player: { x: number; y: number; h: number; v: number }, onRoad: boolean): void;
+  /** A collision at `impact` m/s: the passenger's comfort and the keke's damage (DMG-1). */
   bump(impact: number): void;
+  /** The keke left the road at `speed` m/s and knocked the kerb. */
+  kerb(speed: number): void;
   honk(player: { x: number; y: number }): void;
   wardenEvents(events: WardenEvent[]): void;
   takePhoto(): void;
@@ -82,6 +102,8 @@ export interface RideDeps {
   rand: () => number;
   /** Called when a payout or flash should play (e.g. the photo flash). */
   flash: () => void;
+  /** Oga Lati's workshop stop (DMG-4), or null if the zone has no room for one. */
+  workshop: Spot | null;
 }
 
 export function createRideLoop(d: RideDeps): RideLoop {
@@ -92,6 +114,8 @@ export function createRideLoop(d: RideDeps): RideLoop {
   let route: Route | null = null;
   let routeTimer = 0;
   let photoTarget: number | null = null;
+  /** Set once the repair card has shown, cleared once the keke drives away from the workshop. */
+  let workshopBlocked = false;
   const who = (p: Passenger) => passengerWho(p, PASSENGERS.indexOf(p));
   const save = () => d.saves.save(state);
 
@@ -242,6 +266,82 @@ export function createRideLoop(d: RideDeps): RideLoop {
     syncNotebook();
   };
 
+  const damage = (amount: number) => {
+    if (amount <= 0) return;
+    const before = state.damage;
+    state.damage = addDamage(state.damage, amount);
+    if (Math.floor(before / 10) !== Math.floor(state.damage / 10)) save();
+  };
+
+  /** Oga Lati's card: his diagnosis, the price, and what the player's money can buy (DMG-4). */
+  const openRepair = () => {
+    // Shown once per visit: it opens again only after the keke has driven away.
+    workshopBlocked = true;
+    const dmg = state.damage;
+    const broken = dmg >= BROKEN;
+    const q = repairQuote(dmg, state.money);
+    const band = dmg < 25 ? LATI.light : dmg < 60 ? LATI.medium : LATI.heavy;
+    const apply = (line: string) => {
+      state.money -= q.cost;
+      state.damage = q.after;
+      save();
+      if (q.cost > 0) d.sound.coin();
+      d.dialogs.toast(line, 'good', 3600, CAST.lati.name);
+    };
+    const buttons: DialogButton[] = [];
+    let text = pick(band, d.rand);
+    if (q.full)
+      buttons.push({ label: `Repair ${naira(q.cost)}`, onClick: () => apply(pick(LATI.done, d.rand)) });
+    else if (q.cost > 0)
+      buttons.push({ label: `Fix ${naira(q.cost)} worth`, onClick: () => apply(LATI.partial) });
+    else if (broken) buttons.push({ label: 'Patch it up', onClick: () => apply(LATI.patch) });
+    else text = LATI.broke;
+    if (!broken) buttons.push({ label: 'Not now', kind: 'outline' });
+    d.dialogs.show({
+      who: CAST.lati,
+      text,
+      rows: [
+        { label: 'Damage', value: `${Math.round(dmg)}%` },
+        { label: 'Full repair', value: naira(repairCost(dmg)) },
+        { label: 'You have', value: naira(state.money) },
+      ],
+      buttons,
+    });
+  };
+
+  /** DMG-3: the keke has died. Any passenger leaves, and Oga Lati's boys tow it to his workshop. */
+  const breakDown = (player: { x: number; y: number; h: number; v: number }) => {
+    player.v = 0;
+    if (trip) {
+      const t = trip;
+      trip = null;
+      route = null;
+      d.markers.setRider(null);
+      d.markers.setDestination(null);
+      d.markers.setArrowTarget(null);
+      respect(-2);
+      d.dialogs.toast(pick(BREAKDOWN.pax, d.rand), 'bad', 3600, t.pax.name);
+    }
+    const fee = Math.min(TOW_FEE, state.money);
+    save();
+    d.dialogs.show({
+      who: CAST.lati,
+      text: LATI.tow,
+      rows: [{ label: 'Tow fee', value: naira(fee) }],
+      buttons: [
+        {
+          label: d.workshop ? "Tow it to Oga Lati's" : 'Call Oga Lati',
+          onClick: () => {
+            state.money -= fee;
+            const w = d.workshop;
+            if (w) Object.assign(player, { x: w.stopX, y: w.stopY, h: w.heading, v: 0 });
+            openRepair();
+          },
+        },
+      ],
+    });
+  };
+
   const loop: RideLoop = {
     get state() {
       return state;
@@ -254,6 +354,12 @@ export function createRideLoop(d: RideDeps): RideLoop {
     },
     get photoTarget() {
       return photoTarget;
+    },
+    get wear() {
+      return handling(state.damage);
+    },
+    get broken() {
+      return state.damage >= BROKEN;
     },
     begin(fresh) {
       if (fresh) {
@@ -274,7 +380,21 @@ export function createRideLoop(d: RideDeps): RideLoop {
       } else d.dialogs.toast('Welcome back. Mama is still waiting for that medicine money.');
     },
     update(dt, player, onRoad) {
+      if (state.damage >= BROKEN) {
+        if (!d.dialogs.open) breakDown(player);
+        return;
+      }
       const speed = Math.abs(player.v);
+      const w = d.workshop;
+      if (w) {
+        if (workshopBlocked && Math.hypot(player.x - w.stopX, player.y - w.stopY) > 11)
+          workshopBlocked = false;
+        if (!trip && !workshopBlocked && state.damage >= 1 && atSpot(w, player.x, player.y, speed)) {
+          player.v = 0;
+          openRepair();
+          return;
+        }
+      }
       if (trip) {
         if (stepTrip(trip, dt, onRoad, speed, d.rand)) {
           if (trip.pax.special === 'bisi' && trip.chatted === 1 && !state.bisiDone) {
@@ -314,8 +434,12 @@ export function createRideLoop(d: RideDeps): RideLoop {
       });
     },
     bump(impact) {
+      damage(impactDamage(impact));
       if (trip && bumpComfort(trip, impact))
         d.dialogs.toast(pick(LINES.bump, d.rand), 'bad', 2200, trip.pax.name);
+    },
+    kerb(speed) {
+      damage(kerbDamage(speed));
     },
     honk(player) {
       d.sound.horn();
