@@ -17,7 +17,8 @@ test('the ground has hills, the keke and the road follow them, and the slope is 
     [LOW, HIGH],
   );
   expect(high - low).toBeGreaterThan(3);
-  await expect(page.locator('#title .fine').last()).toContainText('Copernicus');
+  // The Copernicus credit lives on the Credits card (M5a), reached from the title card.
+  await expect(page.locator('#credits')).toContainText('Copernicus DEM GLO-30');
 
   // Looking up the hill, then back down it.
   await page.evaluate(([p, h]) => window.__ona.game!.teleport(p!.x, p!.y, h), [LOW, EAST] as const);
