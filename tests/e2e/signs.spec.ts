@@ -8,7 +8,8 @@ test.setTimeout(180_000);
 test('street name plates and signposts stand at the junctions (NAV-2, NAV-3)', async ({ page, isMobile }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await startGame(page);
+  // The budget is checked at the real default graphics setting.
+  await startGame(page, { graphics: 'auto' });
 
   const signs = await page.evaluate(() => window.__ona.signs!);
   expect(signs.length).toBeGreaterThan(50);
