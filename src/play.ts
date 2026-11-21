@@ -39,6 +39,7 @@ import {
   type WardenEvent,
 } from './sim/wardens';
 import type { SaveStore } from './platform/save';
+import type { PotholeHit } from './sim/potholes';
 import type { Wear } from './sim/vehicle';
 import {
   BREAKDOWN,
@@ -81,6 +82,8 @@ export interface RideLoop {
   bump(impact: number): void;
   /** The keke left the road at `speed` m/s and knocked the kerb. */
   kerb(speed: number): void;
+  /** The keke dropped into a pothole (REAL-5). */
+  pothole(hit: PotholeHit): void;
   honk(player: { x: number; y: number }): void;
   wardenEvents(events: WardenEvent[]): void;
   takePhoto(): void;
@@ -440,6 +443,11 @@ export function createRideLoop(d: RideDeps): RideLoop {
     },
     kerb(speed) {
       damage(kerbDamage(speed));
+    },
+    pothole(hit) {
+      damage(hit.wear);
+      if (trip && bumpComfort(trip, hit.jolt))
+        d.dialogs.toast(pick(LINES.pothole, d.rand), 'bad', 2200, trip.pax.name);
     },
     honk(player) {
       d.sound.horn();
