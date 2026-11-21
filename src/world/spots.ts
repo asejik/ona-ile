@@ -29,7 +29,11 @@ export const STOP_SPEED = 2.2;
  * Finds a stop point and kerb point near a road node. Junctions are avoided by moving a few metres along
  * each road leaving the node, trying the right-hand side first, until the kerb is clear of every road.
  */
-function placeAtKerb(zone: Zone, roads: RoadNetwork, node: number): Omit<Spot, 'name' | 'node'> | null {
+export function placeAtKerb(
+  zone: Zone,
+  roads: RoadNetwork,
+  node: number,
+): Omit<Spot, 'name' | 'node'> | null {
   const [nx, ny] = zone.nodes[node]!;
   for (const along of [10, 16, 22, 6, 28]) {
     for (const e of roads.adjacency[node]!) {
