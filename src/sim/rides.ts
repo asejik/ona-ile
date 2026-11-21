@@ -17,6 +17,8 @@ export interface GameState {
   rides: number;
   /** Keke damage, 0–100 to one decimal (DMG-1). 100 means broken down. */
   damage: number;
+  /** Best timed-challenge times in seconds, to tenths, by challenge id (TIME-1). */
+  best: Record<string, number>;
   stageDone: boolean;
   introDone: boolean;
   bisiDone: boolean;
@@ -29,6 +31,7 @@ export function newGame(pageCount: number): GameState {
     pages: Array.from({ length: pageCount }, () => false),
     rides: 0,
     damage: 0,
+    best: {},
     stageDone: false,
     introDone: false,
     bisiDone: false,

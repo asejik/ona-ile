@@ -13,7 +13,7 @@ export interface LabelSpot {
   a: number;
 }
 
-export type MarkKind = 'you' | 'pax' | 'drop' | 'notebook' | 'place' | 'repair';
+export type MarkKind = 'you' | 'pax' | 'drop' | 'notebook' | 'place' | 'repair' | 'challenge';
 
 export interface MapMark {
   kind: MarkKind;
@@ -158,6 +158,10 @@ export function drawMark(
   } else if (kind === 'repair') {
     g.arc(0, 0, r, 0, Math.PI * 2);
     g.fillStyle = token('--paper', '#FFF6E4');
+  } else if (kind === 'challenge') {
+    // A stopwatch: a yellow face with a crown on top.
+    g.arc(0, r * 0.12, r * 0.85, 0, Math.PI * 2);
+    g.fillStyle = token('--keke', '#F2C230');
   } else {
     g.arc(0, 0, r * 0.6, 0, Math.PI * 2);
     g.fillStyle = token('--paper', '#FFF6E4');
@@ -174,6 +178,17 @@ export function drawMark(
     g.beginPath();
     g.moveTo(0, -r * 0.65);
     g.lineTo(0, r * 0.65);
+    g.stroke();
+  } else if (kind === 'challenge') {
+    g.fillStyle = ink;
+    g.fillRect(-r * 0.18, -r, r * 0.36, r * 0.26);
+    g.lineCap = 'round';
+    g.lineWidth = Math.max(1.5, size * 0.1);
+    g.beginPath();
+    g.moveTo(0, r * 0.12);
+    g.lineTo(0, -r * 0.4);
+    g.moveTo(0, r * 0.12);
+    g.lineTo(r * 0.38, r * 0.12);
     g.stroke();
   } else if (kind === 'repair') {
     // A spanner: a handle and a solid head.

@@ -3,7 +3,7 @@
  * keke pulls over for repairs and where a broken-down keke is towed. The business is invented.
  */
 import type { RoadNetwork } from './roads';
-import { placeAtKerb, type Spot } from './spots';
+import { kerbNear, type Spot } from './spots';
 import type { Zone } from './zone';
 
 export const WORKSHOP_NAME = "Oga Lati's Workshop";
@@ -21,18 +21,5 @@ export function placeWorkshop(
 ): Spot | null {
   const home = zone.spots[0];
   if (!home) return null;
-  const candidates = roads.mainNodes
-    .filter((i) => roads.nodeWidth[i]! >= 6)
-    .map((i) => {
-      const [x, y] = zone.nodes[i]!;
-      return { i, miss: Math.abs(Math.hypot(x - home.x, y - home.y) - AIM) };
-    })
-    .sort((a, b) => a.miss - b.miss);
-  for (const { i } of candidates) {
-    const placed = placeAtKerb(zone, roads, i);
-    if (!placed || blocked(placed.kerbX, placed.kerbY)) continue;
-    if (spots.some((s) => Math.hypot(s.stopX - placed.stopX, s.stopY - placed.stopY) < CLEAR)) continue;
-    return { name: WORKSHOP_NAME, node: i, ...placed };
-  }
-  return null;
+  return kerbNear(zone, roads, WORKSHOP_NAME, home, AIM, spots, CLEAR, blocked);
 }
