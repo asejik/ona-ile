@@ -40,9 +40,10 @@ export interface SceneWorld {
 }
 
 export interface SceneOptions {
-  /** Phones and slow devices: smaller shadow map, shorter fog, no antialiasing at high pixel density. */
-  lowDetail: boolean;
-  reducedMotion: boolean;
+  /** From the graphics quality setting (SYS-1): shadow map size, pixel density, view distance. */
+  detail: { shadowMap: number; maxPixelRatio: number; fogFar: number; antialias: boolean };
+  /** Read each time: the setting can change while driving. */
+  reducedMotion: () => boolean;
 }
 
 export interface GameScene {
@@ -74,23 +75,23 @@ export function createScene(
 ): GameScene {
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: !opts.lowDetail,
+    antialias: opts.detail.antialias,
     powerPreference: 'high-performance',
   });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, opts.lowDetail ? 1.5 : 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, opts.detail.maxPixelRatio));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(HAZE);
-  scene.fog = new THREE.Fog(HAZE, 55, opts.lowDetail ? 300 : 420);
+  scene.fog = new THREE.Fog(HAZE, 55, opts.detail.fogFar);
   const camera = new THREE.PerspectiveCamera(60, 1, 0.4, 700);
 
   scene.add(new THREE.HemisphereLight('#FFF1D8', '#8D5A3B', 1.4));
   const sun = new THREE.DirectionalLight('#FFE0AD', 2.3);
   sun.castShadow = true;
   Object.assign(sun.shadow.camera, { left: -46, right: 46, top: 46, bottom: -46, near: 1, far: 260 });
-  const shadowSize = opts.lowDetail ? 1024 : 2048;
+  const shadowSize = opts.detail.shadowMap;
   sun.shadow.mapSize.set(shadowSize, shadowSize);
   sun.shadow.bias = -0.0004;
   sun.shadow.normalBias = 0.5;
@@ -165,7 +166,7 @@ export function createScene(
       camera.updateProjectionMatrix();
     },
     bump(impact) {
-      if (!opts.reducedMotion) shake = Math.min(0.5, impact * 0.07);
+      if (!opts.reducedMotion()) shake = Math.min(0.5, impact * 0.07);
     },
     render(p, dt) {
       time += dt;
