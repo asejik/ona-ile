@@ -95,6 +95,11 @@ export const LINES = {
     'Ah! Is it gold I am sitting on? Let me find another keke.',
     'For that money I will buy the keke itself. Bye bye.',
   ],
+  pothole: [
+    'Ah! Did you not see that gutter in the road?',
+    'My spine has shifted. Drive round them, abeg.',
+    'That pothole has been there since 2015. Everybody knows it except you.',
+  ],
   bump: ['Ehn! Gently!', 'Do you want to kill me before my wedding?', 'Haba! This is not Lagos!'],
   bisi: 'Your Baba carried me to my wedding in 1989 and refused my money. Tell him Bisi greets him.',
 };

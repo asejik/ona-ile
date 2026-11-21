@@ -10,6 +10,7 @@ import { loadSettings, saveSettings } from './platform/settings';
 import { browserStore } from './platform/storage';
 import { createMarkers } from './render/markers';
 import { createScene } from './render/scene';
+import { Potholes } from './sim/potholes';
 import { createTraffic, pushOutOfTraffic, stepTraffic } from './sim/traffic';
 import { createVehicle, stepVehicle, type VehicleState } from './sim/vehicle';
 import { createWardens, nearestWarden, secondsLeft, stepWardens, wardenRules } from './sim/wardens';
@@ -45,6 +46,8 @@ interface DebugHandle {
   /** Street name plates and signposts placed (NAV-2, NAV-3), for tests. */
   signs?: { x: number; y: number; plates: string[]; blades: string[] }[];
   wardens?: { name: string; phase: 'go' | 'stop' }[];
+  /** Potholes in the world (REAL-5): [x, y, radius, deep], for tests. */
+  potholes?: [number, number, number, 0 | 1][];
   /** 'pending' until the remote switch and the player's choice have been checked. */
   crashReporting: 'pending' | 'on' | 'off';
   /** Ride loop state and a teleport helper, for tests and debugging. */
@@ -113,6 +116,11 @@ async function boot(): Promise<void> {
   const npcs = createTraffic(roads, zone.nodes, rand, LOW_DETAIL ? 10 : 16);
   const spots = buildSpots(zone, roads);
   const workshop = placeWorkshop(zone, roads, spots, (x, y) => obstacles.collide(x, y, 1.2).hit);
+  // REAL-5: kept clear of pickup stops and the workshop, so nobody waits beside a hole.
+  const potholes = new Potholes(zone.potholes, [
+    ...spots.map((s) => ({ x: s.stopX, y: s.stopY })),
+    ...(workshop ? [{ x: workshop.stopX, y: workshop.stopY }] : []),
+  ]);
 
   const start = startPose(zone, roads);
   const player = createVehicle(start.x, start.y, start.h);
@@ -134,7 +142,7 @@ async function boot(): Promise<void> {
     $<HTMLCanvasElement>('gl'),
     zone,
     roads,
-    { kiosks, trees, islands, wardens, npcs, signPosts },
+    { kiosks, trees, islands, wardens, npcs, signPosts, potholes: potholes.list },
     { lowDetail: LOW_DETAIL, reducedMotion: REDUCED_MOTION },
     rand,
   );
@@ -363,6 +371,13 @@ async function boot(): Promise<void> {
         ride.bump(step.impact);
       }
       if (wasOnRoad && !step.onRoad) ride.kerb(Math.abs(player.v));
+      const hole = potholes.step(player.x, player.y, Math.abs(player.v));
+      if (hole) {
+        player.v *= hole.slow;
+        sound.thud();
+        scene.bump(hole.jolt * 0.6);
+        ride.pothole(hole);
+      }
       wasOnRoad = step.onRoad;
       const changed = stepWardens(wardens, dt);
       for (const w of changed) {
@@ -414,6 +429,7 @@ async function boot(): Promise<void> {
     road: '',
     stats: scene.stats,
     traffic: npcs.length,
+    potholes: potholes.list,
     signs: signPosts.map((p) => ({
       x: p.x,
       y: p.y,
