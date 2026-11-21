@@ -13,13 +13,15 @@ export interface LabelSpot {
   a: number;
 }
 
-export type MarkKind = 'you' | 'pax' | 'drop' | 'notebook' | 'place';
+export type MarkKind = 'you' | 'pax' | 'drop' | 'notebook' | 'place' | 'repair';
 
 export interface MapMark {
   kind: MarkKind;
   x: number;
   y: number;
   label?: string;
+  /** Kept on the minimap's rim when off the map, like passengers and the drop-off. */
+  rim?: boolean;
 }
 
 /** Spots every `spacing` metres along every named road. */
@@ -153,6 +155,9 @@ export function drawMark(
   } else if (kind === 'notebook') {
     g.rect(-r * 0.8, -r * 0.65, r * 1.6, r * 1.3);
     g.fillStyle = token('--paper', '#FFF6E4');
+  } else if (kind === 'repair') {
+    g.arc(0, 0, r, 0, Math.PI * 2);
+    g.fillStyle = token('--paper', '#FFF6E4');
   } else {
     g.arc(0, 0, r * 0.6, 0, Math.PI * 2);
     g.fillStyle = token('--paper', '#FFF6E4');
@@ -170,6 +175,18 @@ export function drawMark(
     g.moveTo(0, -r * 0.65);
     g.lineTo(0, r * 0.65);
     g.stroke();
+  } else if (kind === 'repair') {
+    // A spanner: a handle and a solid head.
+    g.lineCap = 'round';
+    g.lineWidth = Math.max(2, size * 0.16);
+    g.beginPath();
+    g.moveTo(-r * 0.45, r * 0.45);
+    g.lineTo(r * 0.2, -r * 0.2);
+    g.stroke();
+    g.fillStyle = ink;
+    g.beginPath();
+    g.arc(r * 0.3, -r * 0.3, r * 0.32, 0, Math.PI * 2);
+    g.fill();
   }
   g.restore();
 }

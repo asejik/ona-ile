@@ -153,7 +153,7 @@ export function createMinimap(
         const d = Math.hypot(dx, dy);
         const edge = R - size * 0.8;
         if (d > edge) {
-          if (m.kind === 'notebook' || m.kind === 'place') continue;
+          if (m.kind !== 'pax' && m.kind !== 'drop' && !m.rim) continue;
           sx = R + (dx / d) * edge;
           sy = R + (dy / d) * edge;
         }

@@ -16,6 +16,7 @@ export const CAST = {
     initial: 'B',
   },
   mama: { name: 'Mama', role: 'Your grandmother', colour: '#9B2F4F', initial: 'M' },
+  lati: { name: 'Oga Lati', role: "Mechanic · Baba's friend for 30 years", colour: '#2F4F6B', initial: 'L' },
 } satisfies Record<string, Who>;
 
 export interface Passenger {
@@ -116,6 +117,36 @@ export const INTRO: { who: Who; text: string }[] = [
     text: 'Take my notebook too. When you pass the places inside it, take a picture for me. My memory is like an old radio now. It needs help to find the station.',
   },
 ];
+
+/** Oga Lati's diagnosis lines (DMG-4), by how bad the damage is. */
+export const LATI = {
+  light: [
+    'Ehen, small scratch. I will touch it and it will be new. Your Baba never brought me small work like this.',
+    'This one is nothing. Just a few knocks. Sit down, drink water, I will finish before you finish it.',
+  ],
+  medium: [
+    'The steering is pulling like a goat on a rope. What did you hit? No, do not tell me. Let me work.',
+    'Ah, this bumper has seen things. Give me small time and it will forget them.',
+  ],
+  heavy: [
+    'My friend, this keke is crying. Even the horn is coughing. I will do my best for it.',
+    'You see this bend here? Your Baba drove for thirty years and did not bend it like this. Ehn. I will fix it.',
+  ],
+  done: ['It is done. Drive it like it is your own mother.', 'Finished. Go and make money, and go gently.'],
+  partial: 'I have done what the money can do. Bring the rest when you have it and I will finish the job.',
+  patch:
+    'Keep your money. I have tied it with wire and prayer. It will move, but come back and let me do it properly.',
+  broke: 'No money? Go and carry two passengers, then come back. The keke is not going anywhere without you.',
+  tow: "I heard you broke down. Don't worry, my boys are coming with the rope. We will pull it to my workshop.",
+};
+
+export const BREAKDOWN = {
+  /** What the passenger says when the keke dies under them. */
+  pax: [
+    'Ah! The keke has died? Let me find another one. No wahala.',
+    'Hmm. I will trek from here. Fix your keke, my dear.',
+  ],
+};
 
 export const STAGE_DONE: { who: Who; text: string }[] = [
   { who: CAST.mama, text: '₦5,000! Ehen. Maybe the Lagos brain is learning.' },

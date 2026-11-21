@@ -99,13 +99,14 @@ describe('save code (SYS-1)', () => {
     respect: 72,
     rides: 9,
     pages: [true, false, true],
+    damage: 37,
     introDone: true,
     bisiDone: true,
   };
 
   it('carries the whole game and comes back the same', () => {
     const code = encodeSaveCode(game);
-    expect(code).toMatch(/^ONA(-[0-9A-Z]+){7}$/);
+    expect(code).toMatch(/^ONA-3(-[0-9A-Z]+){7}$/);
     expect(decodeSaveCode(code, 3)).toEqual(game);
   });
 
@@ -122,6 +123,11 @@ describe('save code (SYS-1)', () => {
     expect(decodeSaveCode('hello', 3)).toBeNull();
     expect(decodeSaveCode(code.replace('ONA', 'ABC'), 3)).toBeNull();
     expect(decodeSaveCode(code.slice(0, -1), 3)).toBeNull();
+  });
+
+  it('still loads a version 2 code from before damage, as an undamaged keke', () => {
+    // Made by the version 2 encoder from the same game.
+    expect(decodeSaveCode('ONA-2-3CU-20-9-5-6-B2LX', 3)).toEqual({ ...game, damage: 0 });
   });
 
   it('clamps values even when the checksum is right', () => {

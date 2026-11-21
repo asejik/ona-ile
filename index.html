@@ -42,7 +42,26 @@
           <span id="wardenSig" class="signal"></span>
         </div>
         <div id="street" class="sign" hidden></div>
-        <div class="chip speed"><span id="speed">0</span> <small>km/h</small></div>
+        <div class="chip speed">
+          <span
+            id="dmg"
+            class="dmg"
+            role="meter"
+            aria-label="Damage"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="0"
+          >
+            <svg class="dmg-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 16V10a5 5 0 0 1 5-5h7l4 5h2v6z" />
+              <circle cx="7" cy="17.5" r="2.2" />
+              <circle cx="18" cy="17.5" r="2.2" />
+            </svg>
+            <span class="dmg-bar" aria-hidden="true"><i id="dmgFill"></i></span>
+            <span id="dmgPct" class="dmg-pct">0%</span>
+          </span>
+          <span id="speed">0</span> <small>km/h</small>
+        </div>
         <div class="controls" aria-label="Driving controls">
           <div class="cluster left">
             <button class="ctl horn" data-act="horn" aria-label="Horn">Horn</button>
@@ -140,6 +159,7 @@
           <li><span class="lg drop" aria-hidden="true"></span>Drop-off</li>
           <li><span class="lg book" aria-hidden="true"></span>Baba's notebook place</li>
           <li><span class="lg place" aria-hidden="true"></span>Place</li>
+          <li><span class="lg repair" aria-hidden="true"></span>Oga Lati's Workshop</li>
         </ul>
         <p class="chip credit fm-credit">
           Map data ©

@@ -22,6 +22,8 @@ export interface Markers {
   /** Point ~18 m along the route the arrow should face, or null to hide it. */
   setArrowTarget(target: { x: number; y: number } | null): void;
   setNotebook(places: { x: number; y: number; found: boolean }[]): void;
+  /** Oga Lati's workshop (DMG-4): a spanner board on the kerb and a paper ring where the keke stops. */
+  setWorkshop(spot: Spot | null): void;
   update(player: { x: number; y: number }, time: number): void;
 }
 
@@ -74,14 +76,45 @@ const BOOK = () =>
     }
   });
 
+/** A spanner on a paper disc, for Oga Lati's workshop. */
+const SPANNER = () =>
+  sprite((g) => {
+    g.fillStyle = '#1C1812';
+    g.beginPath();
+    g.arc(64, 64, 60, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#FFF6E4';
+    g.beginPath();
+    g.arc(64, 64, 52, 0, Math.PI * 2);
+    g.fill();
+    g.strokeStyle = '#1C1812';
+    g.fillStyle = '#1C1812';
+    g.lineCap = 'round';
+    g.lineWidth = 13;
+    g.beginPath();
+    g.moveTo(40, 88);
+    g.lineTo(78, 50);
+    g.stroke();
+    g.beginPath();
+    g.arc(82, 46, 18, 0, Math.PI * 2);
+    g.fill();
+    // The open jaw.
+    g.fillStyle = '#FFF6E4';
+    g.beginPath();
+    g.arc(90, 38, 9, 0, Math.PI * 2);
+    g.fill();
+  });
+
 export function createMarkers(scene: THREE.Scene, keke: THREE.Group): Markers {
   const coinMat = COIN();
   const bookMat = BOOK();
+  const spannerMat = SPANNER();
   const ringGeo = new THREE.RingGeometry(2.0, 2.6, 40).rotateX(-Math.PI / 2);
   // Yellow ring with an ink edge, so it reads on light and dark asphalt.
   const ringMat = (colour: string) =>
     new THREE.MeshBasicMaterial({ color: colour, transparent: true, opacity: 0.9, depthWrite: false });
   const pickupMat = ringMat('#F2C230');
+  const workshopMat = ringMat('#FFF6E4');
   const dropMat = ringMat('#36D07A');
   const edgeGeo = new THREE.RingGeometry(2.6, 2.85, 40).rotateX(-Math.PI / 2);
   const edgeMat = ringMat('#1C1812');
@@ -137,6 +170,19 @@ export function createMarkers(scene: THREE.Scene, keke: THREE.Group): Markers {
   arrow.visible = false;
   scene.add(arrow);
   let arrowTarget: { x: number; y: number } | null = null;
+
+  const workshop = new THREE.Group();
+  const workshopRing = ring(workshopMat);
+  const spanner = new THREE.Sprite(spannerMat);
+  spanner.scale.set(3, 3, 1);
+  const post = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.07, 0.07, 3.2, 6).translate(0, 1.6, 0),
+    new THREE.MeshLambertMaterial({ color: '#8C8C8C' }),
+  );
+  workshop.visible = workshopRing.visible = false;
+  let workshopAt: Spot | null = null;
+  workshop.add(post, spanner);
+  scene.add(workshop, workshopRing);
 
   let rider: THREE.Mesh | null = null;
   const books: { sprite: THREE.Sprite; beam: THREE.Mesh; x: number; y: number }[] = [];
@@ -216,6 +262,14 @@ export function createMarkers(scene: THREE.Scene, keke: THREE.Group): Markers {
         books.push({ sprite: s, beam, x: p.x, y: p.y });
       }
     },
+    setWorkshop(spot) {
+      workshopAt = spot;
+      workshop.visible = workshopRing.visible = spot !== null;
+      if (!spot) return;
+      workshop.position.set(spot.kerbX, 0, -spot.kerbY);
+      spanner.position.y = 4.4;
+      workshopRing.position.set(spot.stopX, 0.09, -spot.stopY);
+    },
     update(player, time) {
       const pulse = 1 + Math.sin(time * 4) * 0.06;
       for (const w of waiting.values()) {
@@ -225,6 +279,9 @@ export function createMarkers(scene: THREE.Scene, keke: THREE.Group): Markers {
         w.coin.visible = Math.hypot(player.x - w.spot.kerbX, player.y - w.spot.kerbY) > 16;
       }
       dest.scale.set(pulse, 1, pulse);
+      // Like the coins, the spanner would fill the view when parked right beside it.
+      if (workshopAt)
+        spanner.visible = Math.hypot(player.x - workshopAt.kerbX, player.y - workshopAt.kerbY) > 12;
       books.forEach((b, i) => {
         b.sprite.position.y = 9 + Math.sin(time * 2 + i) * 0.4;
       });
