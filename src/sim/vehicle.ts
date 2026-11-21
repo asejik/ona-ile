@@ -31,6 +31,8 @@ export interface DriveEnvironment {
   /** Pushes a circle out of obstacles. */
   collide(x: number, y: number, r: number): { x: number; y: number; hit: boolean; nx: number; ny: number };
   bounds: [number, number, number, number];
+  /** Rise per metre along heading `h` (M4c hills); flat when missing. */
+  grade?(x: number, y: number, h: number): number;
 }
 
 export interface StepResult {
@@ -50,6 +52,14 @@ export const KEKE = {
   dragRoad: 1.7,
   dragOffRoad: 3.6,
   turnRate: 1.95,
+  /**
+   * How hard a slope pulls, per unit of grade (m/s² per metre of rise per metre). About four times real
+   * gravity, so Ilorin's gentle hills (main roads reach about 2.6°) are felt: uphill the top speed drops
+   * from about 54 to 48 km/h, and downhill the keke coasts and slowly gains speed.
+   */
+  slopePull: 40,
+  /** Slower than this with no throttle, the keke holds still on a slope instead of creeping. */
+  holdSpeed: 0.5,
 } as const;
 
 export function createVehicle(x: number, y: number, h: number): VehicleState {
@@ -88,6 +98,9 @@ export function stepVehicle(
     s.v -= Math.sign(s.v) * Math.min(Math.abs(s.v), drag);
   }
   if (s.v > vmax) s.v -= (s.v - vmax) * 2.2 * dt;
+  if (env.grade && (throttle !== 0 || Math.abs(s.v) > KEKE.holdSpeed)) {
+    s.v -= KEKE.slopePull * env.grade(s.x, s.y, s.h) * dt;
+  }
 
   s.steer += (steerInput - s.steer) * (1 - Math.exp(-9 * dt));
   const speed = Math.abs(s.v);

@@ -5,6 +5,7 @@ import type { Warden } from '../sim/wardens';
 import type { Island, Kiosk, Tree } from '../world/props';
 import type { RoadNetwork } from '../world/roads';
 import type { SignPost } from '../world/signs';
+import type { Terrain } from '../world/terrain';
 import type { Zone, ZonePothole } from '../world/zone';
 import {
   VERTEX_COLOURS,
@@ -34,6 +35,8 @@ export interface SceneWorld {
   signPosts: SignPost[];
   /** Potholes (REAL-5), already kept clear of the stops. */
   potholes: ZonePothole[];
+  /** The ground's height (M4c). */
+  terrain: Terrain;
 }
 
 export interface SceneOptions {
@@ -93,13 +96,17 @@ export function createScene(
   sun.shadow.normalBias = 0.5;
   scene.add(sun, sun.target);
 
-  scene.add(buildGround(zone, rand));
-  scene.add(...buildRoads(zone, roads));
-  scene.add(...buildBuildings(zone, world.kiosks));
-  scene.add(...buildTrees(world.trees));
-  scene.add(...buildIslands(world.islands));
-  scene.add(...buildSignPosts(world.signPosts));
-  scene.add(...buildPotholes(world.potholes));
+  const terrain = world.terrain;
+  const ground = (x: number, y: number) => terrain.heightAt(x, y);
+  /** Pitch for a vehicle at (x, y) facing `h`: nose up going uphill. */
+  const pitch = (x: number, y: number, h: number) => Math.atan(terrain.grade(x, y, h));
+  scene.add(buildGround(zone, rand, terrain));
+  scene.add(...buildRoads(zone, roads, terrain));
+  scene.add(...buildBuildings(zone, world.kiosks, terrain));
+  scene.add(...buildTrees(world.trees, terrain));
+  scene.add(...buildIslands(world.islands, terrain));
+  scene.add(...buildSignPosts(world.signPosts, terrain));
+  scene.add(...buildPotholes(world.potholes, terrain));
 
   // The player's keke, with Ayo at the handlebar.
   const keke = new THREE.Group();
@@ -136,8 +143,7 @@ export function createScene(
   const goTex = signalTexture('go');
   const wardenModels: WardenModel[] = world.wardens.map((w, i) => {
     const m = wardenModel(i, stopTex, goTex);
-    m.group.position.x = w.x;
-    m.group.position.z = -w.y;
+    m.group.position.set(w.x, ground(w.x, w.y), -w.y);
     scene.add(m.group);
     return m;
   });
@@ -163,18 +169,21 @@ export function createScene(
     },
     render(p, dt) {
       time += dt;
-      keke.position.set(p.x, 0, -p.y);
+      const gy = ground(p.x, p.y);
+      keke.position.set(p.x, gy, -p.y);
       keke.rotation.y = p.h;
+      keke.rotation.z = pitch(p.x, p.y, p.h);
       const speed = Math.abs(p.v);
       kekeBody.rotation.x = -p.steer * Math.min(1, speed / 15) * 0.13;
 
-      sun.position.set(p.x + 40, 85, -p.y + 28);
-      sun.target.position.set(p.x, 0, -p.y);
+      sun.position.set(p.x + 40, gy + 85, -p.y + 28);
+      sun.target.position.set(p.x, gy, -p.y);
 
       world.npcs.forEach((n, i) => {
         const m = npcMeshes[i]!;
-        m.position.set(n.x, 0, -n.y);
+        m.position.set(n.x, ground(n.x, n.y), -n.y);
         m.rotation.y = n.h;
+        m.rotation.z = pitch(n.x, n.y, n.h);
       });
 
       world.wardens.forEach((w, i) => {
@@ -200,13 +209,17 @@ export function createScene(
       const k = camera.position.lengthSq() === 0 ? 1 : 1 - Math.exp(-10 * dt);
       camera.position.x += (cx - camera.position.x) * k;
       camera.position.z += (-cy - camera.position.z) * k;
-      camera.position.y += (height - camera.position.y) * k;
+      // Above the keke, and never inside a hill behind it.
+      const camY = Math.max(gy + height, ground(camera.position.x, -camera.position.z) + 1.6);
+      camera.position.y += (camY - camera.position.y) * k;
       if (shake > 0) {
         camera.position.x += (Math.random() - 0.5) * shake;
         camera.position.y += (Math.random() - 0.5) * shake;
         shake = Math.max(0, shake - dt * 1.6);
       }
-      camera.lookAt(p.x + Math.cos(p.h) * 4, 1.3, -(p.y + Math.sin(p.h) * 4));
+      const lx = p.x + Math.cos(p.h) * 4;
+      const ly = p.y + Math.sin(p.h) * 4;
+      camera.lookAt(lx, ground(lx, ly) + 1.3, -ly);
 
       renderer.render(scene, camera);
       api.stats.calls = renderer.info.render.calls;

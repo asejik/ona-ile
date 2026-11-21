@@ -4,6 +4,7 @@
  */
 import * as THREE from 'three';
 import type { Spot } from '../world/spots';
+import type { Terrain } from '../world/terrain';
 import { VERTEX_COLOURS, personGeometry } from './models';
 
 export interface WaitingPassenger {
@@ -105,7 +106,8 @@ const SPANNER = () =>
     g.fill();
   });
 
-export function createMarkers(scene: THREE.Scene, keke: THREE.Group): Markers {
+export function createMarkers(scene: THREE.Scene, keke: THREE.Group, terrain: Terrain): Markers {
+  const ground = (x: number, y: number) => terrain.heightAt(x, y);
   const coinMat = COIN();
   const bookMat = BOOK();
   const spannerMat = SPANNER();
@@ -185,7 +187,7 @@ export function createMarkers(scene: THREE.Scene, keke: THREE.Group): Markers {
   scene.add(workshop, workshopRing);
 
   let rider: THREE.Mesh | null = null;
-  const books: { sprite: THREE.Sprite; beam: THREE.Mesh; x: number; y: number }[] = [];
+  const books: { sprite: THREE.Sprite; beam: THREE.Mesh; x: number; y: number; g: number }[] = [];
 
   return {
     setWaiting(list) {
@@ -199,7 +201,7 @@ export function createMarkers(scene: THREE.Scene, keke: THREE.Group): Markers {
       for (const w of list) {
         if (waiting.has(w.id)) continue;
         const group = new THREE.Group();
-        group.position.set(w.spot.kerbX, 0, -w.spot.kerbY);
+        group.position.set(w.spot.kerbX, ground(w.spot.kerbX, w.spot.kerbY), -w.spot.kerbY);
         const person = new THREE.Mesh(personGeometry(w.cloth, w.cap ? { cap: w.cap } : {}), VERTEX_COLOURS);
         person.castShadow = true;
         // Face the road.
@@ -209,7 +211,7 @@ export function createMarkers(scene: THREE.Scene, keke: THREE.Group): Markers {
         coin.position.y = 3.6;
         group.add(person, coin);
         const r = ring(pickupMat);
-        r.position.set(w.spot.stopX, 0.09, -w.spot.stopY);
+        r.position.set(w.spot.stopX, ground(w.spot.stopX, w.spot.stopY) + 0.09, -w.spot.stopY);
         scene.add(group, r);
         waiting.set(w.id, { group, ring: r, coin, spot: w.spot });
       }
@@ -229,8 +231,9 @@ export function createMarkers(scene: THREE.Scene, keke: THREE.Group): Markers {
     setDestination(spot) {
       dest.visible = beacon.visible = spot !== null;
       if (spot) {
-        dest.position.set(spot.stopX, 0.09, -spot.stopY);
-        beacon.position.set(spot.stopX, 35, -spot.stopY);
+        const g = ground(spot.stopX, spot.stopY);
+        dest.position.set(spot.stopX, g + 0.09, -spot.stopY);
+        beacon.position.set(spot.stopX, g + 35, -spot.stopY);
       }
     },
     setArrowTarget(t) {
@@ -244,7 +247,8 @@ export function createMarkers(scene: THREE.Scene, keke: THREE.Group): Markers {
         if (p.found) continue;
         const s = new THREE.Sprite(bookMat);
         s.scale.set(4.2, 4.2, 1);
-        s.position.set(p.x, 9, -p.y);
+        const g = ground(p.x, p.y);
+        s.position.set(p.x, g + 9, -p.y);
         const beam = new THREE.Mesh(
           new THREE.CylinderGeometry(0.6, 0.6, 40, 10, 1, true),
           new THREE.MeshBasicMaterial({
@@ -257,18 +261,18 @@ export function createMarkers(scene: THREE.Scene, keke: THREE.Group): Markers {
             side: THREE.DoubleSide,
           }),
         );
-        beam.position.set(p.x, 20, -p.y);
+        beam.position.set(p.x, g + 20, -p.y);
         scene.add(s, beam);
-        books.push({ sprite: s, beam, x: p.x, y: p.y });
+        books.push({ sprite: s, beam, x: p.x, y: p.y, g });
       }
     },
     setWorkshop(spot) {
       workshopAt = spot;
       workshop.visible = workshopRing.visible = spot !== null;
       if (!spot) return;
-      workshop.position.set(spot.kerbX, 0, -spot.kerbY);
+      workshop.position.set(spot.kerbX, ground(spot.kerbX, spot.kerbY), -spot.kerbY);
       spanner.position.y = 4.4;
-      workshopRing.position.set(spot.stopX, 0.09, -spot.stopY);
+      workshopRing.position.set(spot.stopX, ground(spot.stopX, spot.stopY) + 0.09, -spot.stopY);
     },
     update(player, time) {
       const pulse = 1 + Math.sin(time * 4) * 0.06;
@@ -283,11 +287,11 @@ export function createMarkers(scene: THREE.Scene, keke: THREE.Group): Markers {
       if (workshopAt)
         spanner.visible = Math.hypot(player.x - workshopAt.kerbX, player.y - workshopAt.kerbY) > 12;
       books.forEach((b, i) => {
-        b.sprite.position.y = 9 + Math.sin(time * 2 + i) * 0.4;
+        b.sprite.position.y = b.g + 9 + Math.sin(time * 2 + i) * 0.4;
       });
       if (arrowTarget) {
         const a = Math.atan2(arrowTarget.y - player.y, arrowTarget.x - player.x);
-        arrow.position.set(player.x, 3.3, -player.y);
+        arrow.position.set(player.x, ground(player.x, player.y) + 3.3, -player.y);
         arrow.rotation.y = a - Math.PI / 2;
       }
     },
