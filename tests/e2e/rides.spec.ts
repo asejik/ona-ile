@@ -64,7 +64,8 @@ test("a notebook photo restores a page of Baba's notebook (CORE-3)", async ({ pa
   });
   await page.evaluate(([x, y]) => window.__ona.game!.teleport(x! + 5, y!), [place.x, place.y]);
   const photo = page.locator('#photoBtn');
-  await expect(photo).toBeVisible();
+  // The first frame at a new place can take seconds with software WebGL (CI).
+  await expect(photo).toBeVisible({ timeout: 20_000 });
   await photo.click();
   await expect(page.locator('#dialog')).toContainText(`Notebook page restored: ${place.name} · 1 of 3`);
   await closeCards(page);
