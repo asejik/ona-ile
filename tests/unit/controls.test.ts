@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { decodeSaveCode, encodeSaveCode } from '../../src/platform/save';
-import { DEFAULT_SETTINGS, SETTINGS_KEY, loadSettings, saveSettings } from '../../src/platform/settings';
+import {
+  DEFAULT_SETTINGS,
+  QUALITY,
+  SETTINGS_KEY,
+  effectiveQuality,
+  loadSettings,
+  saveSettings,
+} from '../../src/platform/settings';
 import type { KeyValueStore } from '../../src/platform/storage';
 import { newGame, type GameState } from '../../src/sim/rides';
 import { DEAD_ZONE, STEER_DEAD_BAND, STEER_GAIN, SWIPE_RADIUS, swipeDrive } from '../../src/ui/swipe';
@@ -78,17 +85,46 @@ describe('settings', () => {
 
   it('round-trips and repairs bad values field by field', () => {
     const store = memory();
-    saveSettings(store, { controls: 'swipe', steer: 'high', sound: false, swipeHintDone: true });
-    expect(loadSettings(store)).toEqual({
+    const chosen = {
       controls: 'swipe',
       steer: 'high',
       sound: false,
       swipeHintDone: true,
-    });
-    store.setItem(SETTINGS_KEY, JSON.stringify({ controls: 'tilt', steer: 9, sound: 'yes' }));
+      textSize: 'larger',
+      graphics: 'medium',
+      reduceMotion: true,
+    } as const;
+    saveSettings(store, chosen);
+    expect(loadSettings(store)).toEqual(chosen);
+    store.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({
+        controls: 'tilt',
+        steer: 9,
+        sound: 'yes',
+        textSize: 'huge',
+        graphics: 1,
+        reduceMotion: 'y',
+      }),
+    );
     expect(loadSettings(store)).toEqual(DEFAULT_SETTINGS);
     store.setItem(SETTINGS_KEY, '{broken');
     expect(loadSettings(store)).toEqual(DEFAULT_SETTINGS);
+  });
+});
+
+describe('graphics quality (SYS-1)', () => {
+  it("'auto' is low on slow devices and high elsewhere; a choice is kept", () => {
+    expect(effectiveQuality(DEFAULT_SETTINGS, true)).toBe('low');
+    expect(effectiveQuality(DEFAULT_SETTINGS, false)).toBe('high');
+    expect(effectiveQuality({ ...DEFAULT_SETTINGS, graphics: 'medium' }, true)).toBe('medium');
+  });
+
+  it('draws more at each step up', () => {
+    expect(QUALITY.low.traffic).toBeLessThan(QUALITY.medium.traffic);
+    expect(QUALITY.medium.traffic).toBeLessThan(QUALITY.high.traffic);
+    expect(QUALITY.low.trees).toBeLessThan(QUALITY.high.trees);
+    expect(QUALITY.low.fogFar).toBeLessThan(QUALITY.high.fogFar);
   });
 });
 
