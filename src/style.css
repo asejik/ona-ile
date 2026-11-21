@@ -42,6 +42,7 @@
   --go: #38a95b;
   --stop: #b83220;
   --map-ground: #c79466;
+  --route: #36d07a;
   --minimap: 112px;
   --gold-text: #8a6508;
   --success-text: #1f6b45;
@@ -317,6 +318,16 @@ body.page {
   right: max(16px, env(safe-area-inset-right));
   width: var(--minimap);
   height: var(--minimap);
+  /* A button: tapping it opens the full map (DESIGN §6). */
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  pointer-events: auto;
+}
+
+.mapwrap canvas {
+  display: block;
 }
 
 #minimap {
@@ -976,4 +987,145 @@ input.code:focus-visible {
   .set-row[data-touch] {
     display: none;
   }
+}
+
+/* Full map (NAV-5, DESIGN §6): the whole zone on --map-ground, controls on paper. */
+.fullmap {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: var(--map-ground);
+}
+
+.fullmap canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: grab;
+}
+
+.fm-top {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  left: max(16px, env(safe-area-inset-left));
+  right: max(16px, env(safe-area-inset-right));
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-3);
+  pointer-events: none;
+}
+
+.fm-title {
+  position: static;
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: var(--text-md);
+}
+
+.fm-btn {
+  width: var(--touch-min);
+  height: var(--touch-min);
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: var(--outline), var(--shadow-panel);
+  pointer-events: auto;
+}
+
+.fm-btn svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.fm-btn[data-map='centre'] svg {
+  fill: var(--keke);
+  stroke-width: 2;
+}
+
+.fm-zoom {
+  position: absolute;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 44px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.fm-legend {
+  left: max(16px, env(safe-area-inset-left));
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 44px);
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 800;
+}
+
+.fm-legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.lg {
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  border: 2px solid var(--ink);
+  font-family: var(--font-display);
+  font-size: 9px;
+  line-height: 1;
+}
+
+.lg.you {
+  border: 0;
+  background: var(--keke);
+  filter: drop-shadow(0 0 1px var(--ink)) drop-shadow(0 0 0.5px var(--ink));
+  clip-path: polygon(50% 0, 100% 100%, 50% 75%, 0 100%);
+}
+
+.lg.pax {
+  border-radius: 50%;
+  background: var(--keke);
+}
+
+.lg.drop {
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--route);
+}
+
+.lg.book {
+  border-radius: 2px;
+  background: var(--paper);
+}
+
+.lg.place {
+  width: 10px;
+  height: 10px;
+  margin: 2px;
+  border-radius: 50%;
+  background: var(--paper);
+}
+
+.fm-credit {
+  right: max(16px, env(safe-area-inset-right));
+  left: auto;
+  bottom: max(6px, env(safe-area-inset-bottom));
 }
