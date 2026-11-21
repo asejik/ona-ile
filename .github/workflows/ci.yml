@@ -1,7 +1,10 @@
 name: CI
 
+# Once per change: on pull requests, and on main after a merge. (Running on every push as well ran each
+# PR twice.)
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
@@ -44,10 +47,9 @@ jobs:
           echo "zone1-post-office.json matches the pipeline output."
 
   app:
-    name: Typecheck, lint, test, build, browser test
+    name: Typecheck, lint, unit tests, build
     runs-on: ubuntu-latest
-    # 50 browser tests on one worker with software WebGL take 8-14 minutes, depending on the runner.
-    timeout-minutes: 25
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -61,14 +63,48 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+
+  e2e:
+    # The browser tests draw the 3D game on the CPU (no GPU on CI), so they are split across machines that
+    # run at the same time. Each machine builds the game and runs its share.
+    name: Browser tests (${{ matrix.shard }} of 4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
       - name: Install Chromium for Playwright
         run: npx playwright install --with-deps chromium
-      - name: Browser test (phone and desktop)
-        run: npm run test:e2e
+      - name: Browser tests (phone and desktop)
+        run: npx playwright test --shard=${{ matrix.shard }}/4
       - name: Keep screenshots and traces
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-results
+          name: playwright-results-${{ matrix.shard }}
           path: test-results/
           retention-days: 7
+
+  done:
+    # One check that is green only when every job above is: the one to require before merging.
+    name: All checks passed
+    if: always()
+    needs: [secrets, zone, app, e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Every job passed
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}
+        run: |
+          echo "A required job did not pass: ${{ join(needs.*.result, ', ') }}"
+          exit 1
+      - run: echo "All checks passed."

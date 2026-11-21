@@ -1,6 +1,9 @@
 import { expect, test } from '@playwright/test';
 import { startGame } from './play';
 
+// Game logic is the same at any screen size, and the 3D game is slow to test without a GPU: desktop only.
+test.skip(({ isMobile }) => isMobile, 'covered by the desktop project');
+
 // Ahmadu Bello Way climbs east from (188, -116) to (348, -133): about 2.5°, the steepest main road in zone 1.
 const LOW = { x: 190, y: -116 };
 const HIGH = { x: 346, y: -133 };

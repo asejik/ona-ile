@@ -1,7 +1,22 @@
 import { expect, type Page } from '@playwright/test';
 
-/** Loads the game, presses Start driving and taps through any intro cards, leaving the player driving. */
-export async function startGame(page: Page): Promise<void> {
+/**
+ * Loads the game, presses Start driving and taps through any intro cards, leaving the player driving.
+ *
+ * The game starts at the Low graphics setting unless `graphics` says otherwise: CI draws the 3D game on
+ * the CPU, and Low is much quicker. Tests of the performance budget pass 'auto', the real default. A
+ * setting the test changes itself is kept across reloads.
+ */
+export async function startGame(
+  page: Page,
+  { graphics = 'low' }: { graphics?: 'low' | 'auto' } = {},
+): Promise<void> {
+  if (graphics === 'low') {
+    await page.addInitScript(() => {
+      const key = 'onaile.settings.v1';
+      if (!localStorage.getItem(key)) localStorage.setItem(key, JSON.stringify({ graphics: 'low' }));
+    });
+  }
   await page.goto('/');
   await page.waitForFunction(() => window.__ona?.ready === true, undefined, { timeout: 60_000 });
   await page.locator('#startBtn').click();

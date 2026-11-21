@@ -5,7 +5,8 @@ import { startGame } from './play';
 test('the world has traffic, wardens, a minimap and stays within budget', async ({ page, isMobile }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await startGame(page);
+  // The budget is checked at the real default graphics setting.
+  await startGame(page, { graphics: 'auto' });
   await expect.poll(() => page.evaluate(() => window.__ona.wardens?.length ?? 0)).toBe(3);
 
   const s = await page.evaluate(() => ({ stats: window.__ona.stats!, traffic: window.__ona.traffic! }));

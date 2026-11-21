@@ -5,6 +5,8 @@ const CI = Boolean((globalThis as { process?: { env: Record<string, string | und
 
 export default defineConfig({
   testDir: 'tests/e2e',
+  // Lets CI split individual tests (not whole files) evenly across its parallel machines (--shard).
+  fullyParallel: true,
   timeout: 90_000,
   // WebGL runs on the CPU (SwiftShader) here, so one browser at a time.
   workers: 1,
