@@ -66,6 +66,9 @@ export interface ZoneJunction {
   exits: ZoneExit[];
 }
 
+/** A pothole (REAL-5): [x, y, radius in metres, deep (1) or shallow (0)]. */
+export type ZonePothole = [number, number, number, 0 | 1];
+
 export interface Zone {
   id: string;
   title: string;
@@ -83,6 +86,8 @@ export interface Zone {
   notebook: ZoneNotebookPlace[];
   /** Empty for zones built without an overrides file. */
   junctions: ZoneJunction[];
+  /** Empty for zones built without an overrides file. */
+  potholes: ZonePothole[];
 }
 
 /** Checks the fields the game relies on, so a bad file fails with a clear message. */
@@ -94,7 +99,11 @@ export function parseZone(data: unknown): Zone {
     if (z[key] === undefined) throw new Error(`Zone file is missing "${key}"`);
   }
   if (!Array.isArray(z.nodes) || z.nodes.length === 0) throw new Error('Zone file has no road nodes');
-  return { ...z, junctions: Array.isArray(z.junctions) ? z.junctions : [] } as Zone;
+  return {
+    ...z,
+    junctions: Array.isArray(z.junctions) ? z.junctions : [],
+    potholes: Array.isArray(z.potholes) ? z.potholes : [],
+  } as Zone;
 }
 
 export async function loadZone(url: string): Promise<Zone> {

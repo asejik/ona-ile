@@ -336,6 +336,52 @@ def build_junctions(out_nodes, roads, roundabouts, targets):
     return junctions
 
 
+# ---------------- Potholes (REAL-5) -------------------------------------
+POTHOLE_SEED = 20261121
+POTHOLE_EVERY_MINOR = 110.0  # game metres between potholes on side streets
+POTHOLE_EVERY_MAJOR = 380.0  # main roads (10 m wide or more) are kept in better repair
+POTHOLE_GAP = 18.0  # no two potholes closer than this
+POTHOLE_CLEAR_JUNCTION = 22.0  # none in the middle of a junction
+POTHOLE_CLEAR_ROUNDABOUT = 15.0  # none on or right beside a roundabout
+
+
+def place_potholes(out_nodes, roads, roundabouts, junctions):
+    """Potholes along the roads, the same on every build: [x, y, radius, deep (0 or 1)]."""
+    rnd = random.Random(POTHOLE_SEED)
+    out = []
+    for r in roads:
+        if r.get("rb"):
+            continue
+        every = POTHOLE_EVERY_MAJOR if r["w"] >= 10 else POTHOLE_EVERY_MINOR
+        pts = [out_nodes[i] for i in r["p"]]
+        nxt = rnd.uniform(0.3, 1.0) * every
+        run = 0.0
+        for a, b in zip(pts, pts[1:]):
+            dx, dy = b[0] - a[0], b[1] - a[1]
+            seg = math.hypot(dx, dy)
+            while seg > 0 and run + seg >= nxt:
+                t = (nxt - run) / seg
+                nxt += every * rnd.uniform(0.7, 1.3)
+                rad = rnd.uniform(0.7, 1.2)
+                deep = 1 if rnd.random() < 0.3 else 0
+                side = rnd.uniform(-1, 1)
+                room = r["w"] / 2 - rad - 0.6
+                if room <= 0:
+                    continue
+                ux, uy = dx / seg, dy / seg
+                x = a[0] + dx * t - uy * side * room
+                y = a[1] + dy * t + ux * side * room
+                if any(math.hypot(x - j["x"], y - j["y"]) < POTHOLE_CLEAR_JUNCTION for j in junctions):
+                    continue
+                if any(math.hypot(x - rb["x"], y - rb["y"]) < rb["r"] + POTHOLE_CLEAR_ROUNDABOUT for rb in roundabouts):
+                    continue
+                if any(math.hypot(x - q[0], y - q[1]) < POTHOLE_GAP for q in out):
+                    continue
+                out.append([round(x, 1), round(y, 1), round(rad, 2), deep])
+            run += seg
+    return out
+
+
 def main(src, dst, overrides_path=None):
     overrides = json.load(open(overrides_path, encoding="utf-8")) if overrides_path else {}
     name_fixes = overrides.get("roadNames", {})
@@ -569,6 +615,7 @@ def main(src, dst, overrides_path=None):
     }
     if junctions is not None:
         zone["junctions"] = junctions
+        zone["potholes"] = place_potholes(out_nodes, roads, roundabouts, junctions)
     if name_report is not None:
         # How sure each street name is; read by the junction review page, not by the game.
         zone["nameCheck"] = name_report
@@ -584,7 +631,7 @@ def main(src, dst, overrides_path=None):
             f.write(";\n")
     print(f"nodes={len(out_nodes)} roads={len(roads)} roundabouts={len(roundabouts)} "
           f"buildings={len(buildings)} (dropped {dropped} on roads) spots={len(spots)} notebook={len(notebook)}"
-          + (f" junctions={len(junctions)}" if junctions is not None else ""))
+          + (f" junctions={len(junctions)} potholes={len(zone['potholes'])}" if junctions is not None else ""))
     for rb in roundabouts:
         print("  roundabout:", rb["name"], rb["x"], rb["y"], "r=", rb["r"])
 
